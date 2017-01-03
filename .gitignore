@@ -1,9 +1,5 @@
-appCore/obj/
-appCore/bin/
-Launcher/obj/
-Launcher/bin/
-/.vs/ANOC Master Tool/v14/
-/.vs/
+ShiftChanges/obj/
+ShiftChanges/bin/
 /bin/
 /bin/Debug/
 /obj/
