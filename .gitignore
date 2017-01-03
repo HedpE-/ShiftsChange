@@ -1,8 +1,6 @@
 ShiftChanges/obj/
+ShiftChanges/obj/Debug/
 ShiftChanges/bin/
-/bin/
-/bin/Debug/
-/obj/
-/obj/Debug/
+ShiftChanges/bin/Debug/
 
 
