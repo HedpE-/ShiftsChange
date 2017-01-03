@@ -32,14 +32,13 @@ namespace ShiftChanges
 			notifyIcon = new NotifyIcon();
 			notificationMenu = new ContextMenu(InitializeMenu());
 			
-			notifyIcon.DoubleClick += IconDoubleClick;
 			notifyIcon.MouseUp += IconMouseUp;
 			System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(NotificationIcon));
 			notifyIcon.Icon = (Icon)resources.GetObject("$this.Icon");
 			notifyIcon.ContextMenu = notificationMenu;
 		}
 		
-		private MenuItem[] InitializeMenu()
+		MenuItem[] InitializeMenu()
 		{
 			MenuItem[] menu = new MenuItem[] {
 				new MenuItem("Start Service", startServiceClick),
@@ -90,8 +89,8 @@ namespace ShiftChanges
 
 		void midnightTimer_Elapsed(object sender, System.Timers.ElapsedEventArgs e)
 		{
-//			System.Diagnostics.Stopwatch st = new System.Diagnostics.Stopwatch();
-//			st.Start();
+			System.Diagnostics.Stopwatch st = new System.Diagnostics.Stopwatch();
+			st.Start();
 			// Create the binding.
 			service = new ExchangeService(ExchangeVersion.Exchange2010_SP2);
 			service.UseDefaultCredentials = true;
@@ -122,8 +121,8 @@ namespace ShiftChanges
 			double intervalInMs = (intervalInMinutes * 60) * 1000;
 			exchangePollsTimer.Interval = intervalInMs;
 			
-//			st.Stop();
-//			MessageBox.Show(((float)(st.ElapsedMilliseconds / 1000)).ToString());
+			st.Stop();
+			var t = st.Elapsed;
 		}
 		
 		void importShiftsFile(object sender, EventArgs e) {
@@ -151,24 +150,16 @@ namespace ShiftChanges
             } // the using statement automatically calls Dispose() which closes the package.
 		}
 		
-		private void menuSettingsClick(object sender, EventArgs e)
-		{
+		void menuSettingsClick(object sender, EventArgs e) {
 			
 		}
 		
-		private void menuAboutClick(object sender, EventArgs e)
-		{
+		void menuAboutClick(object sender, EventArgs e) {
 			MessageBox.Show("About This Application");
 		}
 		
-		private void menuExitClick(object sender, EventArgs e)
-		{
+		void menuExitClick(object sender, EventArgs e) {
 			Application.Exit();
-		}
-		
-		private void IconDoubleClick(object sender, EventArgs e)
-		{
-			MessageBox.Show("The icon was double clicked");
 		}
 		
 		void IconMouseUp(object sender, MouseEventArgs e) {
@@ -194,8 +185,7 @@ namespace ShiftChanges
 			FindFoldersResults findFolderResults = service.FindFolders(WellKnownFolderName.Inbox, view);
 			//find specific folder
 			foreach(Folder f in findFolderResults) {
-				//show folderId of the folder "test"
-				if (f.DisplayName == "Trocas")
+				if(f.DisplayName == "Trocas")
 					return f;
 			}
 			return null;
@@ -204,7 +194,7 @@ namespace ShiftChanges
 		[System.Runtime.InteropServices.DllImport("user32.dll", SetLastError = true)]
 		public static extern IntPtr GetForegroundWindow();
 		
-		private static bool RedirectionUrlValidationCallback(string redirectionUrl)
+		static bool RedirectionUrlValidationCallback(string redirectionUrl)
 		{
 			// The default for the validation callback is to reject the URL.
 			bool result = false;
@@ -215,9 +205,7 @@ namespace ShiftChanges
 			// callback, the redirection URL is considered valid if it is using HTTPS
 			// to encrypt the authentication credentials.
 			if (redirectionUri.Scheme == "https")
-			{
 				result = true;
-			}
 			return result;
 		}
 	}
