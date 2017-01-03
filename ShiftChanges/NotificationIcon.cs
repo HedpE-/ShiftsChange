@@ -89,8 +89,8 @@ namespace ShiftChanges
 
 		void midnightTimer_Elapsed(object sender, System.Timers.ElapsedEventArgs e)
 		{
-			System.Diagnostics.Stopwatch st = new System.Diagnostics.Stopwatch();
-			st.Start();
+//			System.Diagnostics.Stopwatch st = new System.Diagnostics.Stopwatch();
+//			st.Start();
 			// Create the binding.
 			service = new ExchangeService(ExchangeVersion.Exchange2010_SP2);
 			service.UseDefaultCredentials = true;
@@ -121,8 +121,8 @@ namespace ShiftChanges
 			double intervalInMs = (intervalInMinutes * 60) * 1000;
 			exchangePollsTimer.Interval = intervalInMs;
 			
-			st.Stop();
-			var t = st.Elapsed;
+//			st.Stop();
+//			var t = st.Elapsed;
 		}
 		
 		void importShiftsFile(object sender, EventArgs e) {
