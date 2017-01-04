@@ -1121,8 +1121,6 @@
   <ItemGroup>
     <None Include="app.config" />
     <None Include="EPPlus\OpenOfficeXml.snk" />
-    <EmbeddedResource Include="Microsoft.Exchange.WebServices.Auth.dll" />
-    <EmbeddedResource Include="Microsoft.Exchange.WebServices.dll" />
     <None Include="EWS\Docs\License Terms.rtf" />
     <None Include="EWS\Docs\README.htm" />
     <None Include="EWS\Docs\Redist.txt" />
