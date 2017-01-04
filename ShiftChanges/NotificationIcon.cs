@@ -126,7 +126,7 @@ namespace ShiftChanges
 				ItemEvent item = (ItemEvent)notification;
 				EmailMessage message = EmailMessage.Bind(service, item.ItemId.UniqueId, pSet);
 				
-				
+				string[] body = message.Body.Text.Split('\n');
 			}
 			
 			
