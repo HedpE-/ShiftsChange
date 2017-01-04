@@ -1,12 +1,6 @@
 E:\SharpDevelop Projects\ShiftChanges\ShiftChanges\bin\Debug\ShiftChanges.exe.config
 E:\SharpDevelop Projects\ShiftChanges\ShiftChanges\bin\Debug\ShiftChanges.exe
 E:\SharpDevelop Projects\ShiftChanges\ShiftChanges\bin\Debug\ShiftChanges.pdb
-E:\SharpDevelop Projects\ShiftChanges\ShiftChanges\bin\Debug\Microsoft.Exchange.WebServices.Auth.dll
-E:\SharpDevelop Projects\ShiftChanges\ShiftChanges\bin\Debug\Microsoft.Exchange.WebServices.dll
-E:\SharpDevelop Projects\ShiftChanges\ShiftChanges\bin\Debug\Microsoft.Exchange.WebServices.pdb
-E:\SharpDevelop Projects\ShiftChanges\ShiftChanges\bin\Debug\Microsoft.Exchange.WebServices.xml
-E:\SharpDevelop Projects\ShiftChanges\ShiftChanges\bin\Debug\Microsoft.Exchange.WebServices.Auth.pdb
-E:\SharpDevelop Projects\ShiftChanges\ShiftChanges\bin\Debug\Microsoft.Exchange.WebServices.Auth.xml
 E:\SharpDevelop Projects\ShiftChanges\ShiftChanges\obj\Debug\ShiftChanges.csprojResolveAssemblyReference.cache
 E:\SharpDevelop Projects\ShiftChanges\ShiftChanges\obj\Debug\ShiftChanges.NotificationIcon.resources
 E:\SharpDevelop Projects\ShiftChanges\ShiftChanges\obj\Debug\ShiftChanges.csproj.GenerateResource.Cache
