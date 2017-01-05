@@ -178,28 +178,71 @@ namespace ShiftChanges
 		}
 		
 		void importShiftsFile(object sender, EventArgs e) {
-			FileInfo existingFile = new FileInfo(Environment.GetFolderPath(Environment.SpecialFolder.Desktop) + @"\New Folder\Shift 2017_JAN - Copy.xlsx");
+			IncomingRequestsFolder = getExchangeFolderID(Settings.IncomingRequestsFolder);
+			// The search filter to get unread email.
+			SearchFilter sf = new SearchFilter.SearchFilterCollection(LogicalOperator.And, new SearchFilter.ContainsSubstring(EmailMessageSchema.Subject, "Troca de turno"));
+
+			ItemView itemview = new ItemView(1);
+
+			// Fire the query for the unread items.
+			// This method call results in a FindItem call to EWS.
+			FindItemsResults<Item> findResults = service.FindItems(IncomingRequestsFolder.Id, sf, itemview);
 			
-			using (ExcelPackage package = new ExcelPackage(existingFile))
-			{
-				// get the first worksheet in the workbook
-				ExcelWorksheet worksheet = package.Workbook.Worksheets[1];
-				var val = worksheet.Cells["E11"].Style.Border.Bottom.Color.Rgb;
-				var val2 = worksheet.Cells["E11"].Value;
-				int col = 2; //The item description
-				// output the data in column 2
-				for (int row = 2; row < 5; row++)
-					Console.WriteLine("\tCell({0},{1}).Value={2}", row, col, worksheet.Cells[row, col].Value);
+			if(findResults.Items.Count > 0) {
+				PropertySet itempropertyset = new PropertySet(BasePropertySet.FirstClassProperties);
+				itempropertyset.RequestedBodyType = BodyType.Text;
 
-				// output the formula in row 5
-				Console.WriteLine("\tCell({0},{1}).Formula={2}", 3, 5, worksheet.Cells[3, 5].Formula);
-				Console.WriteLine("\tCell({0},{1}).FormulaR1C1={2}", 3, 5, worksheet.Cells[3, 5].FormulaR1C1);
+				Item item = findResults.Items[0];
+				item.Load(itempropertyset);
+				string[] body = item.Body.Text.Split('\n');
+				
+				string requester = body[0].Substring("Interessado: ".Length);
+				string swapped = body[1].Substring("Troca com: ".Length);
+				DateTime startDate = Convert.ToDateTime(body[2].Substring("Data início: ".Length));
+				DateTime endDate = Convert.ToDateTime(body[3].Substring("Data fim: ".Length));
+				FileInfo existingFile = new FileInfo(Environment.GetFolderPath(Environment.SpecialFolder.Desktop) + @"\New Folder\Shift 2017_JAN - Copy.xlsx");
+				
+				using (ExcelPackage package = new ExcelPackage(existingFile))
+				{
+					// get the first worksheet in the workbook
+					ExcelWorksheet worksheet = package.Workbook.Worksheets[1];
+					
+					int requesterRow = 0;
+					int swappedRow = 0;
+					foreach(var cell in worksheet.Cells["c:c"]) {
+						if(cell.Value != null) {
+							if(requesterRow == 0) {
+								if(cell.Value.ToString() == requester)
+									requesterRow = cell.Start.Row;
+							}
+							if(swappedRow == 0) {
+								if(cell.Value.ToString() == swapped)
+									swappedRow = cell.Start.Row;
+							}
+							if(requesterRow > 0 && swappedRow > 0)
+								break;
+						}
+					}
+					
+					
+					
+					var val = worksheet.Cells["E11"].Style.Border.Bottom.Color.Rgb;
+					var val2 = worksheet.Cells["E11"].Value;
+					int col = 2; //The item description
+					// output the data in column 2
+					for (int row = 2; row < 5; row++)
+						Console.WriteLine("\tCell({0},{1}).Value={2}", row, col, worksheet.Cells[row, col].Value);
 
-				// output the formula in row 5
-				Console.WriteLine("\tCell({0},{1}).Formula={2}", 5, 3, worksheet.Cells[5, 3].Formula);
-				Console.WriteLine("\tCell({0},{1}).FormulaR1C1={2}", 5, 3, worksheet.Cells[5, 3].FormulaR1C1);
+					// output the formula in row 5
+					Console.WriteLine("\tCell({0},{1}).Formula={2}", 3, 5, worksheet.Cells[3, 5].Formula);
+					Console.WriteLine("\tCell({0},{1}).FormulaR1C1={2}", 3, 5, worksheet.Cells[3, 5].FormulaR1C1);
 
-			} // the using statement automatically calls Dispose() which closes the package.
+					// output the formula in row 5
+					Console.WriteLine("\tCell({0},{1}).Formula={2}", 5, 3, worksheet.Cells[5, 3].Formula);
+					Console.WriteLine("\tCell({0},{1}).FormulaR1C1={2}", 5, 3, worksheet.Cells[5, 3].FormulaR1C1);
+
+				} // the using statement automatically calls Dispose() which closes the package.
+			}
 		}
 		
 		void menuSettingsClick(object sender, EventArgs e) {
