@@ -127,6 +127,25 @@ namespace ShiftChanges
 				EmailMessage message = EmailMessage.Bind(service, item.ItemId.UniqueId, pSet);
 				
 				string[] body = message.Body.Text.Split('\n');
+				
+				string requester = body[0].Substring("Interessado: ".Length);
+				string swapped = body[1].Substring("Troca com: ".Length);
+				DateTime startDate = Convert.ToDateTime(body[2].Substring("Data início: ".Length));
+				DateTime endDate = Convert.ToDateTime(body[3].Substring("Data fim: ".Length));
+				
+				FileInfo existingFile = new FileInfo(Environment.GetFolderPath(Environment.SpecialFolder.Desktop) + @"\New Folder\Shift 2017_JAN - Copy.xlsx");
+				
+				using (ExcelPackage package = new ExcelPackage(existingFile))
+				{
+					// get the first worksheet in the workbook
+					ExcelWorksheet worksheet = package.Workbook.Worksheets[1];
+//					var cell = worksheet.Cell(4,3).Value;
+					var objs = worksheet.Cells["c:c"].Where(cell => cell.Value.ToString().Equals(requester)).First();
+//						select worksheet.Cells[cell.Start.Row, 3]; // 2 is column b, Email Address
+					
+					var val = worksheet.Cells["E11"].Style.Border.Bottom.Color.Rgb;
+					var val2 = worksheet.Cells["E11"].Value;
+				}
 			}
 			
 			
