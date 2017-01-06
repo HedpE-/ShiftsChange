@@ -231,9 +231,9 @@ namespace ShiftChanges
 						}
 					}
 					
-					var cel2 = worksheet.MergedCells;
+					var allMergedCells = worksheet.MergedCells;
 					List<string> monthRanges = new List<string>();
-					foreach (string address in cel2.List) {
+					foreach(string address in allMergedCells.List) {
 						string[] temp = address.Split(':');
 						if(temp[0].RemoveLetters() != "1")
 							continue;
@@ -252,8 +252,8 @@ namespace ShiftChanges
 					string reqEndDayColumn = string.Empty;
 					
 					string swapStartDayColumn = string.Empty;
-					string swapEndDayColumn = string.Empty;					
-					foreach (var cell in worksheet.Cells[monthRanges[reqStartDate.Month - 1].Replace('1','3')]) {
+					string swapEndDayColumn = string.Empty;
+					foreach(var cell in worksheet.Cells[monthRanges[reqStartDate.Month - 1].Replace('1','3')]) {
 						if(string.IsNullOrEmpty(reqStartDayColumn)) {
 							if(cell.Value.ToString() == reqStartDate.Day.ToString())
 								reqStartDayColumn = cell.Address.RemoveDigits();
@@ -277,10 +277,24 @@ namespace ShiftChanges
 							break;
 					}
 					
-					var reqCellRange = worksheet.Cells[reqStartDayColumn + requesterRow + ":" + reqEndDayColumn + requesterRow];
-					var swapCellRange = worksheet.Cells[swapStartDayColumn + swappedRow + ":" + swapEndDayColumn + swappedRow];
-					reqCellRange.Copy(swapCellRange);
-					swapCellRange.Copy(reqCellRange);
+					var reqCellRangeToCopy = worksheet.Cells[reqStartDayColumn + requesterRow + ":" + reqEndDayColumn + requesterRow].ToList();
+					var reqCellRangeToPaste = worksheet.Cells[swapStartDayColumn + requesterRow + ":" + swapEndDayColumn + requesterRow].ToList();
+					var swapCellRangeToCopy = worksheet.Cells[swapStartDayColumn + swappedRow + ":" + swapEndDayColumn + swappedRow].ToList();
+					var swapCellRangeToPaste = worksheet.Cells[reqStartDayColumn + swappedRow + ":" + reqEndDayColumn + swappedRow].ToList();
+					var tempCellRange = worksheet.Cells[swapStartDayColumn + "200:" + swapEndDayColumn + "200"];
+					for(int c = 0;c < reqCellRangeToCopy.Count;c++) {
+						worksheet.Cells[tempCellRange.Start.Address].Offset(0, c).Value = reqCellRangeToCopy[c].Value;
+						reqCellRangeToCopy[c].Value = string.Empty;
+					}
+					for(int c = 0;c < swapCellRangeToCopy.Count;c++) {
+						reqCellRangeToPaste[c].Value = swapCellRangeToCopy[c].Value;
+						swapCellRangeToCopy[c].Value = string.Empty;
+					}
+					var tempCellRangeList = tempCellRange.ToList();
+					for(int c = 0;c < tempCellRange.Count();c++)
+						swapCellRangeToPaste[c].Value = tempCellRangeList[c].Value;
+					
+					tempCellRange.Clear();
 					worksheet.Save();
 					package.Save();
 				} // the using statement automatically calls Dispose() which closes the package.
@@ -362,13 +376,12 @@ public static class ExtensionTools {
 
 public class SortAlphabetLength : IComparer
 {
-    public int Compare(Object x, Object y)
-    {
-        if (x.ToString().Length == y.ToString().Length)
-            return string.Compare(x.ToString(), y.ToString());
-        else if (x.ToString().Length > y.ToString().Length)
-            return 1;
-        else
-            return -1;
-    }
+	public int Compare(Object x, Object y)
+	{
+		if(x.ToString().Length == y.ToString().Length)
+			return string.Compare(x.ToString(), y.ToString());
+		if(x.ToString().Length > y.ToString().Length)
+			return 1;
+		return -1;
+	}
 }
