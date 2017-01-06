@@ -8,10 +8,12 @@
  */
 using Microsoft.Exchange.WebServices.Data;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Windows.Forms;
 using OfficeOpenXml;
@@ -129,9 +131,11 @@ namespace ShiftChanges
 				string[] body = message.Body.Text.Split('\n');
 				
 				string requester = body[0].Substring("Interessado: ".Length);
-				string swapped = body[1].Substring("Troca com: ".Length);
-				DateTime startDate = Convert.ToDateTime(body[2].Substring("Data início: ".Length));
-				DateTime endDate = Convert.ToDateTime(body[3].Substring("Data fim: ".Length));
+				string swapped = body[3].Substring("Troca com: ".Length);
+				DateTime reqStartDate = Convert.ToDateTime(body[1].Substring("Data início: ".Length));
+				DateTime reqEndDate = Convert.ToDateTime(body[2].Substring("Data fim: ".Length));
+				DateTime swapStartDate = Convert.ToDateTime(body[4].Substring("Data início: ".Length));
+				DateTime swapEndDate = Convert.ToDateTime(body[5].Substring("Data fim: ".Length));
 				
 				FileInfo existingFile = new FileInfo(Environment.GetFolderPath(Environment.SpecialFolder.Desktop) + @"\New Folder\Shift 2017_JAN - Copy.xlsx");
 				
@@ -197,9 +201,12 @@ namespace ShiftChanges
 				string[] body = item.Body.Text.Split('\n');
 				
 				string requester = body[0].Substring("Interessado: ".Length);
-				string swapped = body[1].Substring("Troca com: ".Length);
-				DateTime startDate = Convert.ToDateTime(body[2].Substring("Data início: ".Length));
-				DateTime endDate = Convert.ToDateTime(body[3].Substring("Data fim: ".Length));
+				string swapped = body[3].Substring("Troca com: ".Length);
+				DateTime reqStartDate = Convert.ToDateTime(body[1].Substring("Data início: ".Length));
+				DateTime reqEndDate = Convert.ToDateTime(body[2].Substring("Data fim: ".Length));
+				DateTime swapStartDate = Convert.ToDateTime(body[4].Substring("Data início: ".Length));
+				DateTime swapEndDate = Convert.ToDateTime(body[5].Substring("Data fim: ".Length));
+				
 				FileInfo existingFile = new FileInfo(Environment.GetFolderPath(Environment.SpecialFolder.Desktop) + @"\New Folder\Shift 2017_JAN - Copy.xlsx");
 				
 				using (ExcelPackage package = new ExcelPackage(existingFile))
@@ -224,29 +231,65 @@ namespace ShiftChanges
 						}
 					}
 					
+					var cel2 = worksheet.MergedCells;
+					List<string> monthRanges = new List<string>();
+					foreach (string address in cel2.List) {
+						string[] temp = address.Split(':');
+						if(temp[0].RemoveLetters() != "1")
+							continue;
+						if(temp[1].RemoveLetters() != "1")
+							continue;
+						monthRanges.Add(address);
+					}
+					try {
+						ArrayList arrList = new ArrayList(monthRanges);
+						SortAlphabetLength alphaLen = new SortAlphabetLength();
+						arrList.Sort(alphaLen);
+						monthRanges = arrList.Cast<string>().ToList();
+					} finally { }
 					
+					string reqStartDayColumn = string.Empty;
+					string reqEndDayColumn = string.Empty;
 					
-					var val = worksheet.Cells["E11"].Style.Border.Bottom.Color.Rgb;
-					var val2 = worksheet.Cells["E11"].Value;
-					int col = 2; //The item description
-					// output the data in column 2
-					for (int row = 2; row < 5; row++)
-						Console.WriteLine("\tCell({0},{1}).Value={2}", row, col, worksheet.Cells[row, col].Value);
-
-					// output the formula in row 5
-					Console.WriteLine("\tCell({0},{1}).Formula={2}", 3, 5, worksheet.Cells[3, 5].Formula);
-					Console.WriteLine("\tCell({0},{1}).FormulaR1C1={2}", 3, 5, worksheet.Cells[3, 5].FormulaR1C1);
-
-					// output the formula in row 5
-					Console.WriteLine("\tCell({0},{1}).Formula={2}", 5, 3, worksheet.Cells[5, 3].Formula);
-					Console.WriteLine("\tCell({0},{1}).FormulaR1C1={2}", 5, 3, worksheet.Cells[5, 3].FormulaR1C1);
-
+					string swapStartDayColumn = string.Empty;
+					string swapEndDayColumn = string.Empty;					
+					foreach (var cell in worksheet.Cells[monthRanges[reqStartDate.Month - 1].Replace('1','3')]) {
+						if(string.IsNullOrEmpty(reqStartDayColumn)) {
+							if(cell.Value.ToString() == reqStartDate.Day.ToString())
+								reqStartDayColumn = cell.Address.RemoveDigits();
+						}
+						if(string.IsNullOrEmpty(reqEndDayColumn)) {
+							if(cell.Value.ToString() == reqEndDate.Day.ToString())
+								reqEndDayColumn = cell.Address.RemoveDigits();
+						}
+						if(string.IsNullOrEmpty(swapStartDayColumn)) {
+							if(cell.Value.ToString() == swapStartDate.Day.ToString())
+								swapStartDayColumn = cell.Address.RemoveDigits();
+						}
+						if(string.IsNullOrEmpty(swapEndDayColumn)) {
+							if(cell.Value.ToString() == swapEndDate.Day.ToString())
+								swapEndDayColumn = cell.Address.RemoveDigits();
+						}
+						if(!string.IsNullOrEmpty(reqStartDayColumn) &&
+						   !string.IsNullOrEmpty(reqEndDayColumn) &&
+						   !string.IsNullOrEmpty(swapStartDayColumn) &&
+						   !string.IsNullOrEmpty(swapEndDayColumn))
+							break;
+					}
+					
+					var reqCellRange = worksheet.Cells[reqStartDayColumn + requesterRow + ":" + reqEndDayColumn + requesterRow];
+					var swapCellRange = worksheet.Cells[swapStartDayColumn + swappedRow + ":" + swapEndDayColumn + swappedRow];
+					reqCellRange.Copy(swapCellRange);
+					swapCellRange.Copy(reqCellRange);
+					worksheet.Save();
+					package.Save();
 				} // the using statement automatically calls Dispose() which closes the package.
 			}
 		}
 		
 		void menuSettingsClick(object sender, EventArgs e) {
-			
+			SettingsForm settings = new SettingsForm();
+			settings.Show();
 		}
 		
 		void menuAboutClick(object sender, EventArgs e) {
@@ -305,4 +348,27 @@ namespace ShiftChanges
 			return result;
 		}
 	}
+}
+
+public static class ExtensionTools {
+	public static String RemoveDigits(this string str) {
+		return Regex.Replace(str, @"\d", "");
+	}
+	
+	public static String RemoveLetters(this string str) {
+		return Regex.Replace(str, "[^0-9.]", "");
+	}
+}
+
+public class SortAlphabetLength : IComparer
+{
+    public int Compare(Object x, Object y)
+    {
+        if (x.ToString().Length == y.ToString().Length)
+            return string.Compare(x.ToString(), y.ToString());
+        else if (x.ToString().Length > y.ToString().Length)
+            return 1;
+        else
+            return -1;
+    }
 }
