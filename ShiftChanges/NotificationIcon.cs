@@ -277,6 +277,21 @@ namespace ShiftChanges
 							break;
 					}
 					
+					var allContacts = service.ResolveName("Pedro Pancho", ResolveNameSearchLocation.DirectoryOnly, true);
+					NameResolution approverContact = null;
+					if(allContacts.Count > 0) {
+						if(allContacts.Count == 1)
+							approverContact = allContacts[0];
+						else {
+							foreach(NameResolution nr in allContacts) {
+								if(nr.Contact.CompanyName == "Vodafone Portugal" && (nr.Contact.Department.StartsWith("First Line Operations UK") || nr.Contact.Department.EndsWith("UK - RAN"))) {
+									approverContact = nr;
+									break;
+								}
+							}
+						}
+					}
+					
 					var reqCellRangeToCopy = worksheet.Cells[reqStartDayColumn + requesterRow + ":" + reqEndDayColumn + requesterRow].ToList();
 					var reqCellRangeToPaste = worksheet.Cells[swapStartDayColumn + requesterRow + ":" + swapEndDayColumn + requesterRow].ToList();
 					var swapCellRangeToCopy = worksheet.Cells[swapStartDayColumn + swappedRow + ":" + swapEndDayColumn + swappedRow].ToList();
@@ -289,14 +304,19 @@ namespace ShiftChanges
 					for(int c = 0;c < swapCellRangeToCopy.Count;c++) {
 						reqCellRangeToPaste[c].Value = swapCellRangeToCopy[c].Value;
 						swapCellRangeToCopy[c].Value = string.Empty;
+						reqCellRangeToPaste[c].AddComment("Troca com o " + swapped + " a pedido do " + requester, approverContact.Contact.DisplayName);
 					}
 					var tempCellRangeList = tempCellRange.ToList();
-					for(int c = 0;c < tempCellRange.Count();c++)
+					for(int c = 0;c < tempCellRange.Count();c++) {
 						swapCellRangeToPaste[c].Value = tempCellRangeList[c].Value;
+						swapCellRangeToPaste[c].AddComment("Troca com o " + requester + " a pedido do " + requester, approverContact.Contact.DisplayName);
+					}
 					
 					tempCellRange.Clear();
 					worksheet.Save();
 					package.Save();
+					
+					item = item.Move(ApprovedRequestsFolder.Id);
 				} // the using statement automatically calls Dispose() which closes the package.
 			}
 		}
