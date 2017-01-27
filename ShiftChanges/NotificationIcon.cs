@@ -27,6 +27,7 @@ namespace ShiftChanges
 		ContextMenu notificationMenu;
 		static ExchangeService service;
 		static StreamingSubscriptionConnection connection;
+		static StreamingSubscriptionConnection connection2;
 		static Folder IncomingRequestsFolder;
 		static Folder ApprovedRequestsFolder;
 		static Folder PendingRequestApprovalFolder;
@@ -91,6 +92,16 @@ namespace ShiftChanges
 		
 		static void InitializeService() {
 			IncomingRequestsFolder = getExchangeFolderID(Settings.IncomingRequestsFolder);
+			ApprovedRequestsFolder = getExchangeFolderID(Settings.ApprovedRequestsFolder);
+			
+//			StreamingSubscription streamingSubscription2 = service.SubscribeToStreamingNotifications(
+//				new FolderId[] { WellKnownFolderName.Inbox }, EventType.NewMail);
+//
+//			connection2 = new StreamingSubscriptionConnection(service, 30);
+//			connection2.AddSubscription(streamingSubscription2);
+//			connection2.OnNotificationEvent += OnNotificationEvent;
+//			connection2.OnDisconnect += OnDisconnect;
+//			connection2.Open();
 			
 			if(IncomingRequestsFolder != null) {
 				// Subscribe to streaming notifications in the Inbox.
@@ -121,7 +132,7 @@ namespace ShiftChanges
 				if (notification.EventType != EventType.NewMail)
 					continue;
 				
-				PropertySet pSet = new PropertySet(new[]{ ItemSchema.UniqueBody, ItemSchema.DisplayTo, ItemSchema.Subject });
+				PropertySet pSet = new PropertySet(new[]{ ItemSchema.UniqueBody, ItemSchema.DisplayTo, ItemSchema.Subject, FolderSchema.ParentFolderId });
 				pSet.RequestedBodyType = BodyType.Text;
 				pSet.BasePropertySet = BasePropertySet.FirstClassProperties;
 				
@@ -183,6 +194,7 @@ namespace ShiftChanges
 		
 		void importShiftsFile(object sender, EventArgs e) {
 			IncomingRequestsFolder = getExchangeFolderID(Settings.IncomingRequestsFolder);
+			ApprovedRequestsFolder = getExchangeFolderID(Settings.ApprovedRequestsFolder);
 			// The search filter to get unread email.
 			SearchFilter sf = new SearchFilter.SearchFilterCollection(LogicalOperator.And, new SearchFilter.ContainsSubstring(EmailMessageSchema.Subject, "Troca de turno"));
 
@@ -207,7 +219,7 @@ namespace ShiftChanges
 				DateTime swapStartDate = Convert.ToDateTime(body[4].Substring("Data início: ".Length));
 				DateTime swapEndDate = Convert.ToDateTime(body[5].Substring("Data fim: ".Length));
 				
-				FileInfo existingFile = new FileInfo(Environment.GetFolderPath(Environment.SpecialFolder.Desktop) + @"\New Folder\Shift 2017_JAN - Copy.xlsx");
+				FileInfo existingFile = new FileInfo(Environment.GetFolderPath(Environment.SpecialFolder.Desktop) + @"\New Folder\Shift 2017_FEV.xlsx");
 				
 				using (ExcelPackage package = new ExcelPackage(existingFile))
 				{
@@ -241,12 +253,11 @@ namespace ShiftChanges
 							continue;
 						monthRanges.Add(address);
 					}
-					try {
-						ArrayList arrList = new ArrayList(monthRanges);
-						SortAlphabetLength alphaLen = new SortAlphabetLength();
-						arrList.Sort(alphaLen);
-						monthRanges = arrList.Cast<string>().ToList();
-					} finally { }
+					
+					ArrayList arrList = new ArrayList(monthRanges);
+					SortAlphabetLength alphaLen = new SortAlphabetLength();
+					arrList.Sort(alphaLen);
+					monthRanges = arrList.Cast<string>().ToList();
 					
 					string reqStartDayColumn = string.Empty;
 					string reqEndDayColumn = string.Empty;
@@ -319,6 +330,35 @@ namespace ShiftChanges
 					item = item.Move(ApprovedRequestsFolder.Id);
 				} // the using statement automatically calls Dispose() which closes the package.
 			}
+		}
+		
+		void CreateTask() ////Main method
+		{
+			Task oTask = new Task(service);
+//			oService.ImpersonatedUserId = new ImpersonatedUserId(ConnectingIdType.SmtpAddress, "userTowhomtasktocreate@domain.com");
+			
+			oTask.ActualWork = 10;
+
+			oTask.Body = new TextBody("Test");
+
+			oTask.Importance = Importance.High;
+			oTask.StartDate =  DateTime.Today;
+			oTask.Status = TaskStatus.InProgress;
+			oTask.Subject = "Test";
+			Recurrence.DailyPattern dailyPattern = new Recurrence.DailyPattern(DateTime.Now, 1);
+			oTask.Recurrence = dailyPattern;
+			oTask.IsReminderSet = true;
+			oTask.ReminderDueBy = DateTime.Now;
+//			oTask.PercentComplete = 11.10;
+
+//			StringList lstCategory = new StringList();
+//			lstCategory.Add("RED Category");
+//
+//			lstCategory.Add("BLACK Category");
+//			lstCategory.Add("BLUE Category");
+//			oTask.Categories = lstCategory;
+
+			oTask.Save();
 		}
 		
 		void menuSettingsClick(object sender, EventArgs e) {
