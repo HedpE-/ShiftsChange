@@ -124,55 +124,9 @@ namespace ShiftChanges
 				
 				ItemEvent itemEvent = (ItemEvent)notification;
 				Item item = Item.Bind(service, itemEvent.ItemId.UniqueId, pSet);
-				commitRequest(item);
-//				EmailMessage message = EmailMessage.Bind(service, item.ItemId.UniqueId, pSet);
-//				
-//				string[] body = message.Body.Text.Split('\n');
-//				
-//				string requester = body[0].Substring("Interessado: ".Length);
-//				string swapped = body[3].Substring("Troca com: ".Length);
-//				DateTime reqStartDate = Convert.ToDateTime(body[1].Substring("Data início: ".Length));
-//				DateTime reqEndDate = Convert.ToDateTime(body[2].Substring("Data fim: ".Length));
-//				DateTime swapStartDate = Convert.ToDateTime(body[4].Substring("Data início: ".Length));
-//				DateTime swapEndDate = Convert.ToDateTime(body[5].Substring("Data fim: ".Length));
-//				
-//				FileInfo existingFile = new FileInfo(Environment.GetFolderPath(Environment.SpecialFolder.Desktop) + @"\New Folder\Shift 2017_JAN - Copy.xlsx");
-//				
-//				using (ExcelPackage package = new ExcelPackage(existingFile))
-//				{
-//					// get the first worksheet in the workbook
-//					ExcelWorksheet worksheet = package.Workbook.Worksheets[1];
-////					var cell = worksheet.Cell(4,3).Value;
-//					var objs = worksheet.Cells["c:c"].Where(cell => cell.Value.ToString().Equals(requester)).First();
-////						select worksheet.Cells[cell.Start.Row, 3]; // 2 is column b, Email Address
-//					
-//					var val = worksheet.Cells["E11"].Style.Border.Bottom.Color.Rgb;
-//					var val2 = worksheet.Cells["E11"].Value;
-//				}
+				if(item is EmailMessage)
+					commitRequest(item);
 			}
-			
-			
-			// The search filter to get unread email.
-//			SearchFilter sf = new SearchFilter.SearchFilterCollection(LogicalOperator.And, new SearchFilter[] { new SearchFilter.IsEqualTo(EmailMessageSchema.IsRead, false), new SearchFilter.ContainsSubstring(EmailMessageSchema.Subject, "Troca de turno") });
-//
-//			ItemView itemview = new ItemView(1000);
-
-			// Fire the query for the unread items.
-			// This method call results in a FindItem call to EWS.
-//			FindItemsResults<Item> findResults = service.FindItems(IncomingRequestsFolder.Id, sf, itemview);
-//
-//			if(findResults.Items.Count > 0) {
-//				PropertySet itempropertyset = new PropertySet(BasePropertySet.FirstClassProperties);
-//				itempropertyset.RequestedBodyType = BodyType.Text;
-//
-//				foreach (Item item in findResults.Items) {
-//					item.Load(itempropertyset);
-//					string[] arr = item.Body.Text.Split(new []{ "\r\n" }, StringSplitOptions.None);
-//				}
-//			}
-			
-//			st.Stop();
-//			var t = st.Elapsed;
 		}
 		
 		void OnDisconnect(object sender, SubscriptionErrorEventArgs e) {
@@ -318,8 +272,10 @@ namespace ShiftChanges
 			// This method call results in a FindItem call to EWS.
 			FindItemsResults<Item> findResults = service.FindItems(IncomingRequestsFolder.Id, sf, itemview);
 			
-			if(findResults.Items.Count > 0)
-				commitRequest(findResults.Items[0]);
+			if(findResults.Items.Count > 0) {
+//				foreach (Item item in findResults)
+					commitRequest(findResults.Items[0]);
+			}
 		}
 		
 		void CreateTask() ////Main method
