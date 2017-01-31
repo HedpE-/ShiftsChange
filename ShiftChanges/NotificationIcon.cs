@@ -90,18 +90,10 @@ namespace ShiftChanges
 		}
 		#endregion
 		
-		static void InitializeService() {
+		#region Event Handlers
+		void startServiceClick(object sender, EventArgs e) {
 			IncomingRequestsFolder = getExchangeFolderID(Settings.IncomingRequestsFolder);
 			ApprovedRequestsFolder = getExchangeFolderID(Settings.ApprovedRequestsFolder);
-			
-//			StreamingSubscription streamingSubscription2 = service.SubscribeToStreamingNotifications(
-//				new FolderId[] { WellKnownFolderName.Inbox }, EventType.NewMail);
-//
-//			connection2 = new StreamingSubscriptionConnection(service, 30);
-//			connection2.AddSubscription(streamingSubscription2);
-//			connection2.OnNotificationEvent += OnNotificationEvent;
-//			connection2.OnDisconnect += OnDisconnect;
-//			connection2.Open();
 			
 			if(IncomingRequestsFolder != null) {
 				// Subscribe to streaming notifications in the Inbox.
@@ -117,14 +109,8 @@ namespace ShiftChanges
 				connection.Open();
 			}
 		}
-		
-		#region Event Handlers
-		void startServiceClick(object sender, EventArgs e)
-		{
-			InitializeService();
-		}
 
-		static void OnNotificationEvent(object sender, NotificationEventArgs args)
+		void OnNotificationEvent(object sender, NotificationEventArgs args)
 		{
 //			System.Diagnostics.Stopwatch st = new System.Diagnostics.Stopwatch();
 //			st.Start();
@@ -136,31 +122,33 @@ namespace ShiftChanges
 				pSet.RequestedBodyType = BodyType.Text;
 				pSet.BasePropertySet = BasePropertySet.FirstClassProperties;
 				
-				ItemEvent item = (ItemEvent)notification;
-				EmailMessage message = EmailMessage.Bind(service, item.ItemId.UniqueId, pSet);
-				
-				string[] body = message.Body.Text.Split('\n');
-				
-				string requester = body[0].Substring("Interessado: ".Length);
-				string swapped = body[3].Substring("Troca com: ".Length);
-				DateTime reqStartDate = Convert.ToDateTime(body[1].Substring("Data início: ".Length));
-				DateTime reqEndDate = Convert.ToDateTime(body[2].Substring("Data fim: ".Length));
-				DateTime swapStartDate = Convert.ToDateTime(body[4].Substring("Data início: ".Length));
-				DateTime swapEndDate = Convert.ToDateTime(body[5].Substring("Data fim: ".Length));
-				
-				FileInfo existingFile = new FileInfo(Environment.GetFolderPath(Environment.SpecialFolder.Desktop) + @"\New Folder\Shift 2017_JAN - Copy.xlsx");
-				
-				using (ExcelPackage package = new ExcelPackage(existingFile))
-				{
-					// get the first worksheet in the workbook
-					ExcelWorksheet worksheet = package.Workbook.Worksheets[1];
-//					var cell = worksheet.Cell(4,3).Value;
-					var objs = worksheet.Cells["c:c"].Where(cell => cell.Value.ToString().Equals(requester)).First();
-//						select worksheet.Cells[cell.Start.Row, 3]; // 2 is column b, Email Address
-					
-					var val = worksheet.Cells["E11"].Style.Border.Bottom.Color.Rgb;
-					var val2 = worksheet.Cells["E11"].Value;
-				}
+				ItemEvent itemEvent = (ItemEvent)notification;
+				Item item = Item.Bind(service, itemEvent.ItemId.UniqueId, pSet);
+				commitRequest(item);
+//				EmailMessage message = EmailMessage.Bind(service, item.ItemId.UniqueId, pSet);
+//				
+//				string[] body = message.Body.Text.Split('\n');
+//				
+//				string requester = body[0].Substring("Interessado: ".Length);
+//				string swapped = body[3].Substring("Troca com: ".Length);
+//				DateTime reqStartDate = Convert.ToDateTime(body[1].Substring("Data início: ".Length));
+//				DateTime reqEndDate = Convert.ToDateTime(body[2].Substring("Data fim: ".Length));
+//				DateTime swapStartDate = Convert.ToDateTime(body[4].Substring("Data início: ".Length));
+//				DateTime swapEndDate = Convert.ToDateTime(body[5].Substring("Data fim: ".Length));
+//				
+//				FileInfo existingFile = new FileInfo(Environment.GetFolderPath(Environment.SpecialFolder.Desktop) + @"\New Folder\Shift 2017_JAN - Copy.xlsx");
+//				
+//				using (ExcelPackage package = new ExcelPackage(existingFile))
+//				{
+//					// get the first worksheet in the workbook
+//					ExcelWorksheet worksheet = package.Workbook.Worksheets[1];
+////					var cell = worksheet.Cell(4,3).Value;
+//					var objs = worksheet.Cells["c:c"].Where(cell => cell.Value.ToString().Equals(requester)).First();
+////						select worksheet.Cells[cell.Start.Row, 3]; // 2 is column b, Email Address
+//					
+//					var val = worksheet.Cells["E11"].Style.Border.Bottom.Color.Rgb;
+//					var val2 = worksheet.Cells["E11"].Value;
+//				}
 			}
 			
 			
@@ -187,9 +175,135 @@ namespace ShiftChanges
 //			var t = st.Elapsed;
 		}
 		
-		static void OnDisconnect(object sender, SubscriptionErrorEventArgs e) {
+		void OnDisconnect(object sender, SubscriptionErrorEventArgs e) {
 			if(!connection.IsOpen)
 				connection.Open();
+		}
+		
+		void commitRequest(Item item) {
+			PropertySet itempropertyset = new PropertySet(BasePropertySet.FirstClassProperties);
+			itempropertyset.RequestedBodyType = BodyType.Text;
+
+			item.Load(itempropertyset);
+			string[] body = item.Body.Text.Split('\n');
+			
+			string requester = body[0].Substring("Interessado: ".Length);
+			string swapped = body[3].Substring("Troca com: ".Length);
+			DateTime reqStartDate = Convert.ToDateTime(body[1].Substring("Data início: ".Length));
+			DateTime reqEndDate = Convert.ToDateTime(body[2].Substring("Data fim: ".Length));
+			DateTime swapStartDate = Convert.ToDateTime(body[4].Substring("Data início: ".Length));
+			DateTime swapEndDate = Convert.ToDateTime(body[5].Substring("Data fim: ".Length));
+			
+			FileInfo existingFile = new FileInfo(Environment.GetFolderPath(Environment.SpecialFolder.Desktop) + @"\New Folder\Shift 2017_FEV.xlsx");
+			
+			using (ExcelPackage package = new ExcelPackage(existingFile))
+			{
+				// get the first worksheet in the workbook
+				ExcelWorksheet worksheet = package.Workbook.Worksheets[1];
+				
+				int requesterRow = 0;
+				int swappedRow = 0;
+				foreach(var cell in worksheet.Cells["c:c"]) {
+					if(cell.Value != null) {
+						if(requesterRow == 0) {
+							if(cell.Value.ToString() == requester)
+								requesterRow = cell.Start.Row;
+						}
+						if(swappedRow == 0) {
+							if(cell.Value.ToString() == swapped)
+								swappedRow = cell.Start.Row;
+						}
+						if(requesterRow > 0 && swappedRow > 0)
+							break;
+					}
+				}
+				
+				var allMergedCells = worksheet.MergedCells;
+				List<string> monthRanges = new List<string>();
+				foreach(string address in allMergedCells.List) {
+					string[] temp = address.Split(':');
+					if(temp[0].RemoveLetters() != "1")
+						continue;
+					if(temp[1].RemoveLetters() != "1")
+						continue;
+					monthRanges.Add(address);
+				}
+				
+				ArrayList arrList = new ArrayList(monthRanges);
+				SortAlphabetLength alphaLen = new SortAlphabetLength();
+				arrList.Sort(alphaLen);
+				monthRanges = arrList.Cast<string>().ToList();
+				
+				string reqStartDayColumn = string.Empty;
+				string reqEndDayColumn = string.Empty;
+				
+				string swapStartDayColumn = string.Empty;
+				string swapEndDayColumn = string.Empty;
+				foreach(var cell in worksheet.Cells[monthRanges[reqStartDate.Month - 1].Replace('1','3')]) {
+					if(string.IsNullOrEmpty(reqStartDayColumn)) {
+						if(cell.Value.ToString() == reqStartDate.Day.ToString())
+							reqStartDayColumn = cell.Address.RemoveDigits();
+					}
+					if(string.IsNullOrEmpty(reqEndDayColumn)) {
+						if(cell.Value.ToString() == reqEndDate.Day.ToString())
+							reqEndDayColumn = cell.Address.RemoveDigits();
+					}
+					if(string.IsNullOrEmpty(swapStartDayColumn)) {
+						if(cell.Value.ToString() == swapStartDate.Day.ToString())
+							swapStartDayColumn = cell.Address.RemoveDigits();
+					}
+					if(string.IsNullOrEmpty(swapEndDayColumn)) {
+						if(cell.Value.ToString() == swapEndDate.Day.ToString())
+							swapEndDayColumn = cell.Address.RemoveDigits();
+					}
+					if(!string.IsNullOrEmpty(reqStartDayColumn) &&
+					   !string.IsNullOrEmpty(reqEndDayColumn) &&
+					   !string.IsNullOrEmpty(swapStartDayColumn) &&
+					   !string.IsNullOrEmpty(swapEndDayColumn))
+						break;
+				}
+				
+				var allContacts = service.ResolveName("Pedro Pancho", ResolveNameSearchLocation.DirectoryOnly, true);
+				NameResolution approverContact = null;
+				if(allContacts.Count > 0) {
+					if(allContacts.Count == 1)
+						approverContact = allContacts[0];
+					else {
+						foreach(NameResolution nr in allContacts) {
+							if(nr.Contact.CompanyName == "Vodafone Portugal" && (nr.Contact.Department.StartsWith("First Line Operations UK") || nr.Contact.Department.EndsWith("UK - RAN"))) {
+								approverContact = nr;
+								break;
+							}
+						}
+					}
+				}
+				
+				var reqCellRangeToCopy = worksheet.Cells[reqStartDayColumn + requesterRow + ":" + reqEndDayColumn + requesterRow].ToList();
+				var reqCellRangeToPaste = worksheet.Cells[swapStartDayColumn + requesterRow + ":" + swapEndDayColumn + requesterRow].ToList();
+				var swapCellRangeToCopy = worksheet.Cells[swapStartDayColumn + swappedRow + ":" + swapEndDayColumn + swappedRow].ToList();
+				var swapCellRangeToPaste = worksheet.Cells[reqStartDayColumn + swappedRow + ":" + reqEndDayColumn + swappedRow].ToList();
+				var tempCellRange = worksheet.Cells[swapStartDayColumn + "200:" + swapEndDayColumn + "200"];
+				for(int c = 0;c < reqCellRangeToCopy.Count;c++) {
+					worksheet.Cells[tempCellRange.Start.Address].Offset(0, c).Value = reqCellRangeToCopy[c].Value;
+					reqCellRangeToCopy[c].Value = string.Empty;
+				}
+				for(int c = 0;c < swapCellRangeToCopy.Count;c++) {
+					reqCellRangeToPaste[c].Value = swapCellRangeToCopy[c].Value;
+					swapCellRangeToCopy[c].Value = string.Empty;
+					reqCellRangeToPaste[c].AddComment("Troca com o " + swapped + " a pedido do " + requester, approverContact.Contact.DisplayName);
+				}
+				var tempCellRangeList = tempCellRange.ToList();
+				for(int c = 0;c < tempCellRange.Count();c++) {
+					swapCellRangeToPaste[c].Value = tempCellRangeList[c].Value;
+					swapCellRangeToPaste[c].AddComment("Troca com o " + requester + " a pedido do " + requester, approverContact.Contact.DisplayName);
+				}
+				
+				tempCellRange.Clear();
+				worksheet.Save();
+				package.Save();
+				
+				item = item.Move(ApprovedRequestsFolder.Id);
+			} // the using statement automatically calls Dispose() which closes the package.
 		}
 		
 		void importShiftsFile(object sender, EventArgs e) {
@@ -204,132 +318,8 @@ namespace ShiftChanges
 			// This method call results in a FindItem call to EWS.
 			FindItemsResults<Item> findResults = service.FindItems(IncomingRequestsFolder.Id, sf, itemview);
 			
-			if(findResults.Items.Count > 0) {
-				PropertySet itempropertyset = new PropertySet(BasePropertySet.FirstClassProperties);
-				itempropertyset.RequestedBodyType = BodyType.Text;
-
-				Item item = findResults.Items[0];
-				item.Load(itempropertyset);
-				string[] body = item.Body.Text.Split('\n');
-				
-				string requester = body[0].Substring("Interessado: ".Length);
-				string swapped = body[3].Substring("Troca com: ".Length);
-				DateTime reqStartDate = Convert.ToDateTime(body[1].Substring("Data início: ".Length));
-				DateTime reqEndDate = Convert.ToDateTime(body[2].Substring("Data fim: ".Length));
-				DateTime swapStartDate = Convert.ToDateTime(body[4].Substring("Data início: ".Length));
-				DateTime swapEndDate = Convert.ToDateTime(body[5].Substring("Data fim: ".Length));
-				
-				FileInfo existingFile = new FileInfo(Environment.GetFolderPath(Environment.SpecialFolder.Desktop) + @"\New Folder\Shift 2017_FEV.xlsx");
-				
-				using (ExcelPackage package = new ExcelPackage(existingFile))
-				{
-					// get the first worksheet in the workbook
-					ExcelWorksheet worksheet = package.Workbook.Worksheets[1];
-					
-					int requesterRow = 0;
-					int swappedRow = 0;
-					foreach(var cell in worksheet.Cells["c:c"]) {
-						if(cell.Value != null) {
-							if(requesterRow == 0) {
-								if(cell.Value.ToString() == requester)
-									requesterRow = cell.Start.Row;
-							}
-							if(swappedRow == 0) {
-								if(cell.Value.ToString() == swapped)
-									swappedRow = cell.Start.Row;
-							}
-							if(requesterRow > 0 && swappedRow > 0)
-								break;
-						}
-					}
-					
-					var allMergedCells = worksheet.MergedCells;
-					List<string> monthRanges = new List<string>();
-					foreach(string address in allMergedCells.List) {
-						string[] temp = address.Split(':');
-						if(temp[0].RemoveLetters() != "1")
-							continue;
-						if(temp[1].RemoveLetters() != "1")
-							continue;
-						monthRanges.Add(address);
-					}
-					
-					ArrayList arrList = new ArrayList(monthRanges);
-					SortAlphabetLength alphaLen = new SortAlphabetLength();
-					arrList.Sort(alphaLen);
-					monthRanges = arrList.Cast<string>().ToList();
-					
-					string reqStartDayColumn = string.Empty;
-					string reqEndDayColumn = string.Empty;
-					
-					string swapStartDayColumn = string.Empty;
-					string swapEndDayColumn = string.Empty;
-					foreach(var cell in worksheet.Cells[monthRanges[reqStartDate.Month - 1].Replace('1','3')]) {
-						if(string.IsNullOrEmpty(reqStartDayColumn)) {
-							if(cell.Value.ToString() == reqStartDate.Day.ToString())
-								reqStartDayColumn = cell.Address.RemoveDigits();
-						}
-						if(string.IsNullOrEmpty(reqEndDayColumn)) {
-							if(cell.Value.ToString() == reqEndDate.Day.ToString())
-								reqEndDayColumn = cell.Address.RemoveDigits();
-						}
-						if(string.IsNullOrEmpty(swapStartDayColumn)) {
-							if(cell.Value.ToString() == swapStartDate.Day.ToString())
-								swapStartDayColumn = cell.Address.RemoveDigits();
-						}
-						if(string.IsNullOrEmpty(swapEndDayColumn)) {
-							if(cell.Value.ToString() == swapEndDate.Day.ToString())
-								swapEndDayColumn = cell.Address.RemoveDigits();
-						}
-						if(!string.IsNullOrEmpty(reqStartDayColumn) &&
-						   !string.IsNullOrEmpty(reqEndDayColumn) &&
-						   !string.IsNullOrEmpty(swapStartDayColumn) &&
-						   !string.IsNullOrEmpty(swapEndDayColumn))
-							break;
-					}
-					
-					var allContacts = service.ResolveName("Pedro Pancho", ResolveNameSearchLocation.DirectoryOnly, true);
-					NameResolution approverContact = null;
-					if(allContacts.Count > 0) {
-						if(allContacts.Count == 1)
-							approverContact = allContacts[0];
-						else {
-							foreach(NameResolution nr in allContacts) {
-								if(nr.Contact.CompanyName == "Vodafone Portugal" && (nr.Contact.Department.StartsWith("First Line Operations UK") || nr.Contact.Department.EndsWith("UK - RAN"))) {
-									approverContact = nr;
-									break;
-								}
-							}
-						}
-					}
-					
-					var reqCellRangeToCopy = worksheet.Cells[reqStartDayColumn + requesterRow + ":" + reqEndDayColumn + requesterRow].ToList();
-					var reqCellRangeToPaste = worksheet.Cells[swapStartDayColumn + requesterRow + ":" + swapEndDayColumn + requesterRow].ToList();
-					var swapCellRangeToCopy = worksheet.Cells[swapStartDayColumn + swappedRow + ":" + swapEndDayColumn + swappedRow].ToList();
-					var swapCellRangeToPaste = worksheet.Cells[reqStartDayColumn + swappedRow + ":" + reqEndDayColumn + swappedRow].ToList();
-					var tempCellRange = worksheet.Cells[swapStartDayColumn + "200:" + swapEndDayColumn + "200"];
-					for(int c = 0;c < reqCellRangeToCopy.Count;c++) {
-						worksheet.Cells[tempCellRange.Start.Address].Offset(0, c).Value = reqCellRangeToCopy[c].Value;
-						reqCellRangeToCopy[c].Value = string.Empty;
-					}
-					for(int c = 0;c < swapCellRangeToCopy.Count;c++) {
-						reqCellRangeToPaste[c].Value = swapCellRangeToCopy[c].Value;
-						swapCellRangeToCopy[c].Value = string.Empty;
-						reqCellRangeToPaste[c].AddComment("Troca com o " + swapped + " a pedido do " + requester, approverContact.Contact.DisplayName);
-					}
-					var tempCellRangeList = tempCellRange.ToList();
-					for(int c = 0;c < tempCellRange.Count();c++) {
-						swapCellRangeToPaste[c].Value = tempCellRangeList[c].Value;
-						swapCellRangeToPaste[c].AddComment("Troca com o " + requester + " a pedido do " + requester, approverContact.Contact.DisplayName);
-					}
-					
-					tempCellRange.Clear();
-					worksheet.Save();
-					package.Save();
-					
-					item = item.Move(ApprovedRequestsFolder.Id);
-				} // the using statement automatically calls Dispose() which closes the package.
-			}
+			if(findResults.Items.Count > 0)
+				commitRequest(findResults.Items[0]);
 		}
 		
 		void CreateTask() ////Main method
@@ -388,7 +378,7 @@ namespace ShiftChanges
 		}
 		#endregion
 		
-		static Folder getExchangeFolderID(string folder) {
+		Folder getExchangeFolderID(string folder) {
 			//SetView
 			FolderView view = new FolderView(100);
 			view.PropertySet = new PropertySet(BasePropertySet.IdOnly);
