@@ -80,6 +80,8 @@ namespace ShiftChanges
 					// Set the URL.
 					service.Url = new Uri("https://outlook-north.vodafone.com/ews/exchange.asmx");
 					
+					ShiftsFile.Initiate();
+					
 					Application.Run();
 					notificationIcon.notifyIcon.Dispose();
 				} else {
@@ -124,8 +126,21 @@ namespace ShiftChanges
 				
 				ItemEvent itemEvent = (ItemEvent)notification;
 				Item item = Item.Bind(service, itemEvent.ItemId.UniqueId, pSet);
-				if(item is EmailMessage)
-					commitRequest(item);
+				if(item is EmailMessage) {
+					if(item.Subject == "Troca de turno") {
+						PropertySet itempropertyset = new PropertySet(BasePropertySet.FirstClassProperties);
+						itempropertyset.RequestedBodyType = BodyType.Text;
+						item.Load(itempropertyset);
+						
+						ShiftsSwapRequest swapRequest = new ShiftsSwapRequest(item);
+						ShiftsFile.ResolveShiftsSwapRequestAdresses(ref swapRequest);
+						
+						if(swapRequest.Validate())
+							commitRequest(swapRequest);
+						else
+							MessageBox.Show(swapRequest.ValidationMessage);
+					}
+				}
 			}
 		}
 		
@@ -134,109 +149,38 @@ namespace ShiftChanges
 				connection.Open();
 		}
 		
-		void commitRequest(Item item) {
-			PropertySet itempropertyset = new PropertySet(BasePropertySet.FirstClassProperties);
-			itempropertyset.RequestedBodyType = BodyType.Text;
-
-			item.Load(itempropertyset);
-			string[] body = item.Body.Text.Split('\n');
+		void commitRequest(ShiftsSwapRequest swapRequest) {
+			var allContacts = service.ResolveName("Pedro Pancho", ResolveNameSearchLocation.DirectoryOnly, true);
+			NameResolution approverContact = null;
+			if(allContacts.Count > 0) {
+				if(allContacts.Count == 1)
+					approverContact = allContacts[0];
+				else {
+					foreach(NameResolution nr in allContacts) {
+						if(nr.Contact.CompanyName == "Vodafone Portugal" && (nr.Contact.Department.StartsWith("First Line Operations UK") || nr.Contact.Department.EndsWith("UK - RAN"))) {
+							approverContact = nr;
+							break;
+						}
+					}
+				}
+			}
 			
-			string requester = body[0].Substring("Interessado: ".Length);
-			string swapped = body[3].Substring("Troca com: ".Length);
-			DateTime reqStartDate = Convert.ToDateTime(body[1].Substring("Data início: ".Length));
-			DateTime reqEndDate = Convert.ToDateTime(body[2].Substring("Data fim: ".Length));
-			DateTime swapStartDate = Convert.ToDateTime(body[4].Substring("Data início: ".Length));
-			DateTime swapEndDate = Convert.ToDateTime(body[5].Substring("Data fim: ".Length));
-			
-			FileInfo existingFile = new FileInfo(Environment.GetFolderPath(Environment.SpecialFolder.Desktop) + @"\New Folder\Shift 2017_FEV.xlsx");
-			
-			using (ExcelPackage package = new ExcelPackage(existingFile))
+			using (ExcelPackage package = new ExcelPackage(Settings.existingFile))
 			{
 				// get the first worksheet in the workbook
 				ExcelWorksheet worksheet = package.Workbook.Worksheets[1];
 				
-				int requesterRow = 0;
-				int swappedRow = 0;
-				foreach(var cell in worksheet.Cells["c:c"]) {
-					if(cell.Value != null) {
-						if(requesterRow == 0) {
-							if(cell.Value.ToString() == requester)
-								requesterRow = cell.Start.Row;
-						}
-						if(swappedRow == 0) {
-							if(cell.Value.ToString() == swapped)
-								swappedRow = cell.Start.Row;
-						}
-						if(requesterRow > 0 && swappedRow > 0)
-							break;
-					}
-				}
+				var reqCellRangeToCopy = worksheet.Cells[swapRequest.Requester.StartDateColumn + swapRequest.Requester.PersonRow + ":" +
+				                                         swapRequest.Requester.EndDateColumn + swapRequest.Requester.PersonRow].ToList();
+				var reqCellRangeToPaste = worksheet.Cells[swapRequest.SwapWith.StartDateColumn + swapRequest.Requester.PersonRow + ":" +
+				                                          swapRequest.SwapWith.EndDateColumn + swapRequest.Requester.PersonRow].ToList();
+				var swapCellRangeToCopy = worksheet.Cells[swapRequest.SwapWith.StartDateColumn + swapRequest.SwapWith.PersonRow + ":" +
+				                                          swapRequest.SwapWith.EndDateColumn + swapRequest.SwapWith.PersonRow].ToList();
+				var swapCellRangeToPaste = worksheet.Cells[swapRequest.Requester.StartDateColumn + swapRequest.SwapWith.PersonRow + ":" +
+				                                           swapRequest.Requester.EndDateColumn + swapRequest.SwapWith.PersonRow].ToList();
+				var tempCellRange = worksheet.Cells[swapRequest.SwapWith.StartDateColumn + "200:" +
+				                                    swapRequest.SwapWith.EndDateColumn + "200"];
 				
-				var allMergedCells = worksheet.MergedCells;
-				List<string> monthRanges = new List<string>();
-				foreach(string address in allMergedCells.List) {
-					string[] temp = address.Split(':');
-					if(temp[0].RemoveLetters() != "1")
-						continue;
-					if(temp[1].RemoveLetters() != "1")
-						continue;
-					monthRanges.Add(address);
-				}
-				
-				ArrayList arrList = new ArrayList(monthRanges);
-				SortAlphabetLength alphaLen = new SortAlphabetLength();
-				arrList.Sort(alphaLen);
-				monthRanges = arrList.Cast<string>().ToList();
-				
-				string reqStartDayColumn = string.Empty;
-				string reqEndDayColumn = string.Empty;
-				
-				string swapStartDayColumn = string.Empty;
-				string swapEndDayColumn = string.Empty;
-				foreach(var cell in worksheet.Cells[monthRanges[reqStartDate.Month - 1].Replace('1','3')]) {
-					if(string.IsNullOrEmpty(reqStartDayColumn)) {
-						if(cell.Value.ToString() == reqStartDate.Day.ToString())
-							reqStartDayColumn = cell.Address.RemoveDigits();
-					}
-					if(string.IsNullOrEmpty(reqEndDayColumn)) {
-						if(cell.Value.ToString() == reqEndDate.Day.ToString())
-							reqEndDayColumn = cell.Address.RemoveDigits();
-					}
-					if(string.IsNullOrEmpty(swapStartDayColumn)) {
-						if(cell.Value.ToString() == swapStartDate.Day.ToString())
-							swapStartDayColumn = cell.Address.RemoveDigits();
-					}
-					if(string.IsNullOrEmpty(swapEndDayColumn)) {
-						if(cell.Value.ToString() == swapEndDate.Day.ToString())
-							swapEndDayColumn = cell.Address.RemoveDigits();
-					}
-					if(!string.IsNullOrEmpty(reqStartDayColumn) &&
-					   !string.IsNullOrEmpty(reqEndDayColumn) &&
-					   !string.IsNullOrEmpty(swapStartDayColumn) &&
-					   !string.IsNullOrEmpty(swapEndDayColumn))
-						break;
-				}
-				
-				var allContacts = service.ResolveName("Pedro Pancho", ResolveNameSearchLocation.DirectoryOnly, true);
-				NameResolution approverContact = null;
-				if(allContacts.Count > 0) {
-					if(allContacts.Count == 1)
-						approverContact = allContacts[0];
-					else {
-						foreach(NameResolution nr in allContacts) {
-							if(nr.Contact.CompanyName == "Vodafone Portugal" && (nr.Contact.Department.StartsWith("First Line Operations UK") || nr.Contact.Department.EndsWith("UK - RAN"))) {
-								approverContact = nr;
-								break;
-							}
-						}
-					}
-				}
-				
-				var reqCellRangeToCopy = worksheet.Cells[reqStartDayColumn + requesterRow + ":" + reqEndDayColumn + requesterRow].ToList();
-				var reqCellRangeToPaste = worksheet.Cells[swapStartDayColumn + requesterRow + ":" + swapEndDayColumn + requesterRow].ToList();
-				var swapCellRangeToCopy = worksheet.Cells[swapStartDayColumn + swappedRow + ":" + swapEndDayColumn + swappedRow].ToList();
-				var swapCellRangeToPaste = worksheet.Cells[reqStartDayColumn + swappedRow + ":" + reqEndDayColumn + swappedRow].ToList();
-				var tempCellRange = worksheet.Cells[swapStartDayColumn + "200:" + swapEndDayColumn + "200"];
 				for(int c = 0;c < reqCellRangeToCopy.Count;c++) {
 					worksheet.Cells[tempCellRange.Start.Address].Offset(0, c).Value = reqCellRangeToCopy[c].Value;
 					reqCellRangeToCopy[c].Value = string.Empty;
@@ -244,19 +188,19 @@ namespace ShiftChanges
 				for(int c = 0;c < swapCellRangeToCopy.Count;c++) {
 					reqCellRangeToPaste[c].Value = swapCellRangeToCopy[c].Value;
 					swapCellRangeToCopy[c].Value = string.Empty;
-					reqCellRangeToPaste[c].AddComment("Troca com o " + swapped + " a pedido do " + requester, approverContact.Contact.DisplayName);
+					reqCellRangeToPaste[c].AddComment("Troca com " + swapRequest.SwapWith.Name + " a pedido de " + swapRequest.Requester.Name, approverContact.Contact.DisplayName);
 				}
 				var tempCellRangeList = tempCellRange.ToList();
 				for(int c = 0;c < tempCellRange.Count();c++) {
 					swapCellRangeToPaste[c].Value = tempCellRangeList[c].Value;
-					swapCellRangeToPaste[c].AddComment("Troca com o " + requester + " a pedido do " + requester, approverContact.Contact.DisplayName);
+					swapCellRangeToPaste[c].AddComment("Troca com " + swapRequest.SwapWith.Name + " a pedido de " + swapRequest.Requester.Name, approverContact.Contact.DisplayName);
 				}
 				
 				tempCellRange.Clear();
 				worksheet.Save();
 				package.Save();
 				
-				item = item.Move(ApprovedRequestsFolder.Id);
+//				item = item.Move(ApprovedRequestsFolder.Id);
 			} // the using statement automatically calls Dispose() which closes the package.
 		}
 		
@@ -273,8 +217,19 @@ namespace ShiftChanges
 			FindItemsResults<Item> findResults = service.FindItems(IncomingRequestsFolder.Id, sf, itemview);
 			
 			if(findResults.Items.Count > 0) {
+				PropertySet itempropertyset = new PropertySet(BasePropertySet.FirstClassProperties);
+				itempropertyset.RequestedBodyType = BodyType.Text;
+				Item item = findResults.Items[0];
+				item.Load(itempropertyset);
+				
 //				foreach (Item item in findResults)
-					commitRequest(findResults.Items[0]);
+				ShiftsSwapRequest swapRequest = new ShiftsSwapRequest(item);
+				ShiftsFile.ResolveShiftsSwapRequestAdresses(ref swapRequest);
+				
+				if(swapRequest.Validate())
+					commitRequest(swapRequest);
+				else
+					MessageBox.Show(swapRequest.ValidationMessage);
 			}
 		}
 		
@@ -368,16 +323,241 @@ namespace ShiftChanges
 			return result;
 		}
 	}
+	
+	public class ShiftsSwapRequest {
+		public ShiftsSwapRequestData Requester { get; private set; }
+		public ShiftsSwapRequestData SwapWith { get; private set; }
+		public bool SameDates {
+			get { return Requester.StartDateColumn == SwapWith.StartDateColumn && Requester.EndDateColumn == SwapWith.EndDateColumn; }
+		}
+		public bool Valid { get; private set; }
+		public string ValidationMessage { get; private set; }
+		
+		public ShiftsSwapRequest(Item item) {
+			string[] body = item.Body.Text.Split('\n').Select(s => s.Replace("\r", "").Replace("\n", "")).ToArray();
+			
+			Requester = new ShiftsSwapRequestData(
+				body[0].Substring("Interessado: ".Length),
+				Convert.ToDateTime(body[1].Substring("Data início: ".Length)),
+				Convert.ToDateTime(body[2].Substring("Data fim: ".Length)));
+			
+			SwapWith = new ShiftsSwapRequestData(
+				body[3].Substring("Troca com: ".Length),
+				Convert.ToDateTime(body[4].Substring("Data início: ".Length)),
+				Convert.ToDateTime(body[5].Substring("Data fim: ".Length)));
+		}
+		
+		public bool Validate() {
+			if(Requester.Role != SwapWith.Role) { // Só pode trocar dentro do grupo
+				Valid = false;
+				ValidationMessage = "Different role groups";
+				return Valid;
+			}
+			
+			// TODO: Não pode trocar com outra pessoa num range acima de 10 linhas
+			
+			// TODO: Formandos não podem fazer trocas 
+			
+			Requester.UpdateMonthRangeShifts();
+			SwapWith.UpdateMonthRangeShifts();
+			
+			if(Requester.TotalWorkingDaysAfterSwap > 5) { // Não pode ficar a trabalhar mais de 5 dias seguidos
+				Valid = false;
+				ValidationMessage = "Requester works more than 5 days in a row";
+				return Valid;
+			}			
+			if(SwapWith.TotalWorkingDaysAfterSwap > 5) {
+				Valid = false;
+				ValidationMessage = "Person to swap with works more than 5 days in a row";
+				return Valid;
+			}
+			
+			if(Requester.MaxDaysOffAfterSwap > 4) { // Não pode ficar com mais de 4 folgas seguidas
+				Valid = false;
+				ValidationMessage = "Requester gets more than 4 days off in a row";
+				return Valid;
+			}			
+			if(SwapWith.MaxDaysOffAfterSwap > 4) {
+				Valid = false;
+				ValidationMessage = "Person to swap with gets more than 4 days off in a row";
+				return Valid;
+			}
+			
+			// TODO: Não pode ficar com menos de 24h entre mudança de turnos para mais cedo.
+			
+//			Valid = true;
+			ValidationMessage = "Valid for approval";
+			
+			return Valid;
+		}
+		
+		public class ShiftsSwapRequestData {
+			public string Name { get; private set; }
+			public int PersonRow { get; set; }
+			public Roles Role { get; private set; }
+			public DateTime StartDate { get; private set; }
+			public string StartDateColumn { get; set; }
+			public DateTime EndDate { get; private set; }
+			public string EndDateColumn { get; set; }
+			public int AffectedMonths { get; set; }
+			public string[] SwappedShifts { get; set; }
+			public string[] ShiftsToSwap { get; set; }
+			public string[] MonthRangeShifts { get; private set; }
+			public int TotalWorkingDaysAfterSwap { get; private set; }
+			public int MaxDaysOffAfterSwap { get; private set; }
+			public TimeSpan TimeOffBeforeShiftsToSwap { get; private set; }
+			public TimeSpan TimeOffAfterShiftsToSwap { get; private set; }
+			
+			public ShiftsSwapRequestData(string name, DateTime startDate, DateTime endDate) {
+				Name = name;
+				StartDate = startDate;
+				EndDate = endDate;
+				AffectedMonths = StartDate.Month == EndDate.Month ? 1 : 2;
+				Role = ShiftsFile.GetRole(Name);
+			}
+			
+			public void UpdateMonthRangeShifts() {
+				MonthRangeShifts = ShiftsFile.GetAllShiftsInMonth(this);
+				
+				int startDateIndex = StartDate.Day - 1;
+				int endDateIndex = AffectedMonths == 1 ? EndDate.Day - 1 : DateTime.DaysInMonth(StartDate.Year, StartDate.Month) + EndDate.Day - 1;
+				
+				for(int c = startDateIndex;c <= endDateIndex;c++)
+					MonthRangeShifts[c] = SwappedShifts[c - startDateIndex];
+				
+				List<string> shiftsList = new List<string>();
+				bool previousMonthRequested = false;
+				int currentIndex = startDateIndex;
+				while(!string.IsNullOrEmpty(MonthRangeShifts[currentIndex])) {
+					if(currentIndex > 0)
+						currentIndex--;
+					else {
+						previousMonthRequested = true;
+						List<string> prevMonth = ShiftsFile.RequestPreviousMonth(this);
+						startDateIndex += prevMonth.Count;
+						endDateIndex += prevMonth.Count;
+						currentIndex += prevMonth.Count - 1;
+						prevMonth.AddRange(MonthRangeShifts);
+						MonthRangeShifts = prevMonth.ToArray();
+					}
+				}
+				while(string.IsNullOrEmpty(MonthRangeShifts[currentIndex])) {
+					if(currentIndex > 0)
+						currentIndex--;
+					else {
+						previousMonthRequested = true;
+						List<string> prevMonth = ShiftsFile.RequestPreviousMonth(this);
+						startDateIndex += prevMonth.Count;
+						endDateIndex += prevMonth.Count;
+						currentIndex += prevMonth.Count - 1;
+						prevMonth.AddRange(MonthRangeShifts);
+						MonthRangeShifts = prevMonth.ToArray();
+					}
+				}
+				
+				int year = previousMonthRequested ? (StartDate.Month == 1 ? StartDate.Year - 1 : StartDate.Year) : StartDate.Year;
+				int month = previousMonthRequested ? (StartDate.Month == 1 ? 12 : StartDate.Month) : StartDate.Month;
+				
+				DateTime listFirstDate = new DateTime(year, month, currentIndex + 1, 0, 0, 0);
+				
+				while(currentIndex <= endDateIndex)
+					shiftsList.Add(MonthRangeShifts[currentIndex++]);
+				
+				while(!string.IsNullOrEmpty(MonthRangeShifts[currentIndex]))
+					shiftsList.Add(MonthRangeShifts[currentIndex++]);
+				while(string.IsNullOrEmpty(MonthRangeShifts[currentIndex]))
+					shiftsList.Add(MonthRangeShifts[currentIndex++]);
+				shiftsList.Add(MonthRangeShifts[currentIndex]);
+				
+				TotalWorkingDaysAfterSwap = shiftsList.Count(s => !string.IsNullOrEmpty(s)) - 2;
+				
+				int daysOffCount = 0;
+				List<string> list = new List<string>();
+				list.Add(shiftsList[0]);
+				currentIndex = 1;
+				while(string.IsNullOrEmpty(shiftsList[currentIndex])) {
+					list.Add(shiftsList[currentIndex++]);
+					daysOffCount++;
+				}
+				list.Add(shiftsList[currentIndex]);
+				MaxDaysOffAfterSwap = daysOffCount;
+				
+				TimeOffBeforeShiftsToSwap = CalculateTimeOff(list);
+				
+				daysOffCount = 0;
+				list.Clear();
+				list.Add(shiftsList[shiftsList.Count - 1]);
+				currentIndex = shiftsList.Count - 2;
+				while(string.IsNullOrEmpty(shiftsList[currentIndex])) {
+					list.Insert(0, shiftsList[currentIndex--]);
+				}
+				list.Insert(0, shiftsList[currentIndex]);
+				if(daysOffCount > MaxDaysOffAfterSwap)
+					MaxDaysOffAfterSwap = daysOffCount;
+				
+				TimeOffAfterShiftsToSwap = CalculateTimeOff(list);
+			}
+			
+			TimeSpan CalculateTimeOff(List<string> shiftsList) {
+				DateTime currentDate = new DateTime(1,1,1);
+				
+				int shiftEndHour = 8;
+				switch(shiftsList[0]) {
+//					case "N":
+//						shiftEndHour = 8;
+//						break;
+					case "M": case "QM":
+						shiftEndHour = 16;
+						break;
+					case "A": case "QA":
+						shiftEndHour = 0;
+						currentDate = currentDate.AddDays(1);
+						break;
+					case "I":
+						shiftEndHour = 18;
+						break;
+				}
+				
+				DateTime timeOffStart = new DateTime(currentDate.Year, currentDate.Month, currentDate.Day, shiftEndHour, 0, 0);
+				
+				int currentIndex;
+				for(currentIndex = 1;currentIndex < shiftsList.Count;currentIndex++) {
+					if(!string.IsNullOrEmpty(shiftsList[currentIndex])) {
+						currentDate = currentDate.AddDays(shiftEndHour == 0 ? currentIndex - 1 : currentIndex);
+						break;
+					}
+				}
+				
+				int shiftStartHour = 0;
+				switch(shiftsList[currentIndex]) {
+//					case "N":
+//						shiftStartHour = 0;
+//						break;
+					case "M": case "QM":
+						shiftStartHour = 8;
+						break;
+					case "A": case "QA":
+						shiftStartHour = 16;
+						break;
+					case "I":
+						shiftStartHour = 10;
+						break;
+				}
+				
+				DateTime timeOffEnd = new DateTime(currentDate.Year, currentDate.Month, currentDate.Day, shiftStartHour, 0, 0);
+				
+				return timeOffEnd - timeOffStart;
+			}
+		}
+	}
 }
 
-public static class ExtensionTools {
-	public static String RemoveDigits(this string str) {
-		return Regex.Replace(str, @"\d", "");
-	}
-	
-	public static String RemoveLetters(this string str) {
-		return Regex.Replace(str, "[^0-9.]", "");
-	}
+public enum Roles {
+	ShiftLeader,
+	TEF,
+	External,
+	RAN,
+	None
 }
 
 public class SortAlphabetLength : IComparer

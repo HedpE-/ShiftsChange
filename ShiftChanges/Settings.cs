@@ -8,6 +8,7 @@
  */
 using System;
 using System.ComponentModel;
+using System.IO;
 
 namespace ShiftChanges
 {
@@ -33,5 +34,7 @@ namespace ShiftChanges
 			get { return pendingRequestApprovalFolder; }
 			set { pendingRequestApprovalFolder = value; }
 		}
+		
+		public static FileInfo existingFile = new FileInfo(Environment.GetFolderPath(Environment.SpecialFolder.Desktop) + @"\New Folder\Shift 2017_MAR.xlsx");
 	}
 }
