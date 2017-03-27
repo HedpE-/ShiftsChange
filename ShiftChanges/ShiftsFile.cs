@@ -260,6 +260,78 @@ namespace ShiftChanges
 			}
 			return list;
 		}
+		
+		public static List<string> RequestNextMonth(ShiftsSwapRequest.ShiftsSwapRequestData request) {
+			List<string> list = new List<string>();
+			if(request.StartDate.Month < 12)
+				list = GetAllShiftsInMonth(request.PersonRow, request.StartDate.Month + 1).ToList();
+			else {
+				var foundFiles = ShiftsDefaultLocation.GetFiles("*shift*" + (request.StartDate.Year + 1) + "*.xlsx", SearchOption.TopDirectoryOnly);
+				
+				FileInfo foundFile = null;
+				if(foundFiles.Length > 1) {
+					foundFile = foundFiles.Aggregate((f1, f2) => f1.Length > f2.Length ? f1 : f2);
+//					var biggestFile = foundFiles.Max(f => f.Length);
+//					foundFile = foundFiles.First(f => f.Length == biggestFile);
+				}
+				else {
+					if(foundFiles.Length == 1)
+						foundFile = foundFiles[0];
+					else
+						return list;
+				}
+				
+				ExcelPackage pack = null;
+				try {
+					pack = new ExcelPackage(foundFile);
+				}
+				catch {
+					if(Settings.existingFile != null) {
+						FileInfo tempShiftsFile = Settings.existingFile.CopyTo(Environment.SpecialFolder.ApplicationData + "\\" + Settings.existingFile.Name, true);
+						pack = new ExcelPackage(tempShiftsFile);
+					}
+					
+				}
+				
+				if (pack.File != null) {
+					var allMergedCells = pack.Workbook.Worksheets[1].MergedCells;
+					ArrayList monthRangesArr = new ArrayList();
+					foreach(string address in allMergedCells.List) {
+						string[] temp = address.Split(':');
+						if(temp[0].RemoveLetters() != "1")
+							continue;
+						if(temp[1].RemoveLetters() != "1")
+							continue;
+						monthRangesArr.Add(address);
+					}
+					
+					SortAlphabetLength alphaLen = new SortAlphabetLength();
+					monthRanges.Sort(alphaLen);
+					
+					int personRow = 0;
+					foreach(var cell in pack.Workbook.Worksheets[1].Cells["c:c"]) {
+						if(cell.Value != null) {
+							string[] nameArr = request.Name.ToUpper().RemoveDiacritics().Split(' ');
+							if(cell.Text.ToUpper().RemoveDiacritics().Contains(nameArr[0]) &&
+							   cell.Text.ToUpper().RemoveDiacritics().Contains(nameArr[1]))
+								personRow = cell.Start.Row;
+						}
+					}
+					
+					var personRange = pack.Workbook.Worksheets[1].Cells[monthRangesArr[0].ToString().Replace("1", request.PersonRow.ToString())];
+					for(int c = personRange.Start.Column;c <= personRange.End.Column;c++) {
+						if(list.Count > 0 && pack.Workbook.Worksheets[1].Cells[3, c].Text == "1")
+							continue;
+						var cell = pack.Workbook.Worksheets[1].Cells[personRow, c];
+						if(cell.Value == null)
+							list.Add(string.Empty);
+						else
+							list.Add(cell.Text);
+					}
+				}
+			}
+			return list;
+		}
 
 //		static int FindPersonRow(string name) {
 //			foreach(var cell in package.Workbook.Worksheets[1].Cells["c:c"]) {
@@ -275,6 +347,7 @@ namespace ShiftChanges
 		
 		public static void ResolveShiftsSwapRequestAdresses(ref ShiftsSwapRequest req) {
 			FindRequestPeopleRows(ref req);
+			ResolveTraineeStatus(ref req);
 			FindRequestDatesColumns(ref req);
 			
 			ResolveShiftsToSwap(ref req);
@@ -365,6 +438,11 @@ namespace ShiftChanges
 				return Roles.RAN;
 			
 			return Roles.None;
+		}
+		
+		public static void ResolveTraineeStatus(ref ShiftsSwapRequest req) {
+			req.Requester.IsTrainee = package.Workbook.Worksheets[1].Cells[req.Requester.PersonRow, 3].Comment != null;
+			req.SwapWith.IsTrainee = package.Workbook.Worksheets[1].Cells[req.SwapWith.PersonRow, 3].Comment != null;
 		}
 		
 //		static string FindDayColumn(DateTime date) {

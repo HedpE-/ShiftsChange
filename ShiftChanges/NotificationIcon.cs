@@ -354,9 +354,27 @@ namespace ShiftChanges
 				return Valid;
 			}
 			
-			// TODO: Não pode trocar com outra pessoa num range acima de 10 linhas
+			// Não pode trocar com outra pessoa num range acima de 10 linhas
+			int maxRowIndex = Math.Max(Requester.PersonRow, SwapWith.PersonRow);
+			int minRowIndex = Math.Min(Requester.PersonRow, SwapWith.PersonRow);
+			int rowsDifference = maxRowIndex - minRowIndex;
+			if(rowsDifference > 10) {
+				Valid = false;
+				ValidationMessage = "More than 10 rows difference between the 2 persons (" + rowsDifference + ")";
+//				return Valid;
+			}
 			
-			// TODO: Formandos não podem fazer trocas 
+			// Formandos não podem fazer trocas
+			if(Requester.IsTrainee) {
+				Valid = false;
+				ValidationMessage = "Requester is a trainee";
+				return Valid;
+			}
+			if(SwapWith.IsTrainee) {
+				Valid = false;
+				ValidationMessage = "Person to swap is a trainee";
+				return Valid;
+			}
 			
 			Requester.UpdateMonthRangeShifts();
 			SwapWith.UpdateMonthRangeShifts();
@@ -365,7 +383,7 @@ namespace ShiftChanges
 				Valid = false;
 				ValidationMessage = "Requester works more than 5 days in a row";
 				return Valid;
-			}			
+			}
 			if(SwapWith.TotalWorkingDaysAfterSwap > 5) {
 				Valid = false;
 				ValidationMessage = "Person to swap with works more than 5 days in a row";
@@ -376,7 +394,7 @@ namespace ShiftChanges
 				Valid = false;
 				ValidationMessage = "Requester gets more than 4 days off in a row";
 				return Valid;
-			}			
+			}
 			if(SwapWith.MaxDaysOffAfterSwap > 4) {
 				Valid = false;
 				ValidationMessage = "Person to swap with gets more than 4 days off in a row";
@@ -395,6 +413,7 @@ namespace ShiftChanges
 			public string Name { get; private set; }
 			public int PersonRow { get; set; }
 			public Roles Role { get; private set; }
+			public bool IsTrainee { get; set; }
 			public DateTime StartDate { get; private set; }
 			public string StartDateColumn { get; set; }
 			public DateTime EndDate { get; private set; }
@@ -405,6 +424,8 @@ namespace ShiftChanges
 			public string[] MonthRangeShifts { get; private set; }
 			public int TotalWorkingDaysAfterSwap { get; private set; }
 			public int MaxDaysOffAfterSwap { get; private set; }
+			public TimeSpan ShiftBreakBeforeShiftsToSwap { get; private set; }
+			public TimeSpan ShiftBreakAfterShiftsToSwap { get; private set; }
 			public TimeSpan TimeOffBeforeShiftsToSwap { get; private set; }
 			public TimeSpan TimeOffAfterShiftsToSwap { get; private set; }
 			
@@ -424,6 +445,7 @@ namespace ShiftChanges
 				
 				for(int c = startDateIndex;c <= endDateIndex;c++)
 					MonthRangeShifts[c] = SwappedShifts[c - startDateIndex];
+				
 				
 				List<string> shiftsList = new List<string>();
 				bool previousMonthRequested = false;
@@ -455,6 +477,18 @@ namespace ShiftChanges
 					}
 				}
 				
+				List<string> list = new List<string>();
+				list.Add(MonthRangeShifts[startDateIndex - 1]);
+				list.Add(MonthRangeShifts[startDateIndex]);
+				
+				ShiftBreakBeforeShiftsToSwap = list.Count(s => string.IsNullOrEmpty(s)) > 0 ? new TimeSpan(24, 0, 0) : CalculateTimeOff(list);
+				
+				list.Clear();
+				list.Add(MonthRangeShifts[startDateIndex]);
+				list.Add(MonthRangeShifts[startDateIndex + 1]);
+				
+				ShiftBreakBeforeShiftsToSwap = list.Count(s => string.IsNullOrEmpty(s)) > 0 ? new TimeSpan(24, 0, 0) : CalculateTimeOff(list);
+				
 				int year = previousMonthRequested ? (StartDate.Month == 1 ? StartDate.Year - 1 : StartDate.Year) : StartDate.Year;
 				int month = previousMonthRequested ? (StartDate.Month == 1 ? 12 : StartDate.Month) : StartDate.Month;
 				
@@ -463,16 +497,28 @@ namespace ShiftChanges
 				while(currentIndex <= endDateIndex)
 					shiftsList.Add(MonthRangeShifts[currentIndex++]);
 				
-				while(!string.IsNullOrEmpty(MonthRangeShifts[currentIndex]))
+				while(!string.IsNullOrEmpty(MonthRangeShifts[currentIndex])) {
 					shiftsList.Add(MonthRangeShifts[currentIndex++]);
-				while(string.IsNullOrEmpty(MonthRangeShifts[currentIndex]))
+					if(currentIndex > MonthRangeShifts.Length - 1) {
+						var tempList = ShiftsFile.RequestNextMonth(this);
+						tempList.InsertRange(0, MonthRangeShifts);
+						MonthRangeShifts = tempList.ToArray();
+					}
+				}
+				while(string.IsNullOrEmpty(MonthRangeShifts[currentIndex])) {
 					shiftsList.Add(MonthRangeShifts[currentIndex++]);
+					if(currentIndex > MonthRangeShifts.Length - 1) {
+						var tempList = ShiftsFile.RequestNextMonth(this);
+						tempList.InsertRange(0, MonthRangeShifts);
+						MonthRangeShifts = tempList.ToArray();
+					}
+				}
 				shiftsList.Add(MonthRangeShifts[currentIndex]);
 				
 				TotalWorkingDaysAfterSwap = shiftsList.Count(s => !string.IsNullOrEmpty(s)) - 2;
 				
 				int daysOffCount = 0;
-				List<string> list = new List<string>();
+				list.Clear();
 				list.Add(shiftsList[0]);
 				currentIndex = 1;
 				while(string.IsNullOrEmpty(shiftsList[currentIndex])) {
@@ -520,16 +566,18 @@ namespace ShiftChanges
 				
 				DateTime timeOffStart = new DateTime(currentDate.Year, currentDate.Month, currentDate.Day, shiftEndHour, 0, 0);
 				
-				int currentIndex;
-				for(currentIndex = 1;currentIndex < shiftsList.Count;currentIndex++) {
-					if(!string.IsNullOrEmpty(shiftsList[currentIndex])) {
-						currentDate = currentDate.AddDays(shiftEndHour == 0 ? currentIndex - 1 : currentIndex);
-						break;
-					}
-				}
+				currentDate = currentDate.AddDays(shiftEndHour == 0 ? shiftsList.Count - 2 : shiftsList.Count - 1);
+				
+//				int currentIndex;
+//				for(currentIndex = 1;currentIndex < shiftsList.Count;currentIndex++) {
+//					if(!string.IsNullOrEmpty(shiftsList[currentIndex])) {
+//						currentDate = currentDate.AddDays(shiftEndHour == 0 ? currentIndex - 1 : currentIndex);
+//						break;
+//					}
+//				}
 				
 				int shiftStartHour = 0;
-				switch(shiftsList[currentIndex]) {
+				switch(shiftsList[shiftsList.Count - 1]) {
 //					case "N":
 //						shiftStartHour = 0;
 //						break;
