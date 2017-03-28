@@ -401,7 +401,40 @@ namespace ShiftChanges
 				return Valid;
 			}
 			
-			// TODO: Não pode ficar com menos de 24h entre mudança de turnos para mais cedo.
+			// Não pode ficar com menos de 24h entre mudança de turnos para mais cedo.
+			List<string> temp = new List<string>();
+			temp.Add(Requester.MonthRangeShifts[Requester.StartDateIndex - 1]);
+			temp.Add(Requester.MonthRangeShifts[Requester.StartDateIndex]);
+			TimeSpan startShiftChangeTime = Requester.CalculateTimeOff(temp);
+			TimeSpan endShiftChangeTime = new TimeSpan(24, 0, 0);
+			if(Requester.EndDateIndex < Requester.MonthRangeShifts.Length - 1) {
+				temp.Clear();
+				temp.Add(Requester.MonthRangeShifts[Requester.EndDateIndex]);
+				temp.Add(Requester.MonthRangeShifts[Requester.StartDateIndex]);
+				endShiftChangeTime = Requester.CalculateTimeOff(temp);
+			}
+			if(startShiftChangeTime.TotalHours < 16 || endShiftChangeTime.TotalHours < 16) {
+				Valid = false;
+				ValidationMessage = "Requester gets less than 24h between shifts";
+				return Valid;
+			}
+			
+			temp.Clear();
+			temp.Add(SwapWith.MonthRangeShifts[Requester.StartDateIndex - 1]);
+			temp.Add(SwapWith.MonthRangeShifts[Requester.StartDateIndex]);
+			startShiftChangeTime = Requester.CalculateTimeOff(temp);
+			endShiftChangeTime = new TimeSpan(24, 0, 0);
+			if(Requester.EndDateIndex < Requester.MonthRangeShifts.Length - 1) {
+				temp.Clear();
+				temp.Add(Requester.MonthRangeShifts[Requester.EndDateIndex]);
+				temp.Add(Requester.MonthRangeShifts[Requester.StartDateIndex]);
+				endShiftChangeTime = Requester.CalculateTimeOff(temp);
+			}
+			if(startShiftChangeTime.TotalHours < 16 || endShiftChangeTime.TotalHours < 16) {
+				Valid = false;
+				ValidationMessage = "Person to swap with gets less than 24h between shifts";
+				return Valid;
+			}
 			
 //			Valid = true;
 			ValidationMessage = "Valid for approval";
@@ -416,8 +449,10 @@ namespace ShiftChanges
 			public bool IsTrainee { get; set; }
 			public DateTime StartDate { get; private set; }
 			public string StartDateColumn { get; set; }
+			public int StartDateIndex { get; set; }
 			public DateTime EndDate { get; private set; }
 			public string EndDateColumn { get; set; }
+			public int EndDateIndex { get; set; }
 			public int AffectedMonths { get; set; }
 			public string[] SwappedShifts { get; set; }
 			public string[] ShiftsToSwap { get; set; }
@@ -440,24 +475,24 @@ namespace ShiftChanges
 			public void UpdateMonthRangeShifts() {
 				MonthRangeShifts = ShiftsFile.GetAllShiftsInMonth(this);
 				
-				int startDateIndex = StartDate.Day - 1;
-				int endDateIndex = AffectedMonths == 1 ? EndDate.Day - 1 : DateTime.DaysInMonth(StartDate.Year, StartDate.Month) + EndDate.Day - 1;
+				StartDateIndex = StartDate.Day - 1;
+				EndDateIndex = AffectedMonths == 1 ? EndDate.Day - 1 : DateTime.DaysInMonth(StartDate.Year, StartDate.Month) + EndDate.Day - 1;
 				
-				for(int c = startDateIndex;c <= endDateIndex;c++)
-					MonthRangeShifts[c] = SwappedShifts[c - startDateIndex];
+				for(int c = StartDateIndex;c <= EndDateIndex;c++)
+					MonthRangeShifts[c] = SwappedShifts[c - StartDateIndex];
 				
 				
 				List<string> shiftsList = new List<string>();
 				bool previousMonthRequested = false;
-				int currentIndex = startDateIndex;
+				int currentIndex = StartDateIndex;
 				while(!string.IsNullOrEmpty(MonthRangeShifts[currentIndex])) {
 					if(currentIndex > 0)
 						currentIndex--;
 					else {
 						previousMonthRequested = true;
 						List<string> prevMonth = ShiftsFile.RequestPreviousMonth(this);
-						startDateIndex += prevMonth.Count;
-						endDateIndex += prevMonth.Count;
+						StartDateIndex += prevMonth.Count;
+						EndDateIndex += prevMonth.Count;
 						currentIndex += prevMonth.Count - 1;
 						prevMonth.AddRange(MonthRangeShifts);
 						MonthRangeShifts = prevMonth.ToArray();
@@ -469,8 +504,8 @@ namespace ShiftChanges
 					else {
 						previousMonthRequested = true;
 						List<string> prevMonth = ShiftsFile.RequestPreviousMonth(this);
-						startDateIndex += prevMonth.Count;
-						endDateIndex += prevMonth.Count;
+						StartDateIndex += prevMonth.Count;
+						EndDateIndex += prevMonth.Count;
 						currentIndex += prevMonth.Count - 1;
 						prevMonth.AddRange(MonthRangeShifts);
 						MonthRangeShifts = prevMonth.ToArray();
@@ -478,14 +513,14 @@ namespace ShiftChanges
 				}
 				
 				List<string> list = new List<string>();
-				list.Add(MonthRangeShifts[startDateIndex - 1]);
-				list.Add(MonthRangeShifts[startDateIndex]);
+				list.Add(MonthRangeShifts[StartDateIndex - 1]);
+				list.Add(MonthRangeShifts[StartDateIndex]);
 				
 				ShiftBreakBeforeShiftsToSwap = list.Count(s => string.IsNullOrEmpty(s)) > 0 ? new TimeSpan(24, 0, 0) : CalculateTimeOff(list);
 				
 				list.Clear();
-				list.Add(MonthRangeShifts[startDateIndex]);
-				list.Add(MonthRangeShifts[startDateIndex + 1]);
+				list.Add(MonthRangeShifts[StartDateIndex]);
+				list.Add(MonthRangeShifts[StartDateIndex + 1]);
 				
 				ShiftBreakBeforeShiftsToSwap = list.Count(s => string.IsNullOrEmpty(s)) > 0 ? new TimeSpan(24, 0, 0) : CalculateTimeOff(list);
 				
@@ -493,29 +528,51 @@ namespace ShiftChanges
 				int month = previousMonthRequested ? (StartDate.Month == 1 ? 12 : StartDate.Month) : StartDate.Month;
 				
 				DateTime listFirstDate = new DateTime(year, month, currentIndex + 1, 0, 0, 0);
-				
-				while(currentIndex <= endDateIndex)
+				bool endOfMonth = false;
+				while(currentIndex <= EndDateIndex)
 					shiftsList.Add(MonthRangeShifts[currentIndex++]);
 				
-				while(!string.IsNullOrEmpty(MonthRangeShifts[currentIndex])) {
-					shiftsList.Add(MonthRangeShifts[currentIndex++]);
-					if(currentIndex > MonthRangeShifts.Length - 1) {
-						var tempList = ShiftsFile.RequestNextMonth(this);
-						tempList.InsertRange(0, MonthRangeShifts);
-						MonthRangeShifts = tempList.ToArray();
-					}
-				}
-				while(string.IsNullOrEmpty(MonthRangeShifts[currentIndex])) {
+				while(!string.IsNullOrEmpty(MonthRangeShifts[currentIndex]) && !endOfMonth) {
 					shiftsList.Add(MonthRangeShifts[currentIndex++]);
 					if(currentIndex > MonthRangeShifts.Length - 1) {
-						var tempList = ShiftsFile.RequestNextMonth(this);
-						tempList.InsertRange(0, MonthRangeShifts);
-						MonthRangeShifts = tempList.ToArray();
+						if(ShiftsFile.LastMonthAvailable > EndDate.Month) {
+							var tempList = ShiftsFile.RequestNextMonth(this);
+							tempList.InsertRange(0, MonthRangeShifts);
+							MonthRangeShifts = tempList.ToArray();
+						}
+						else {
+							endOfMonth = true;
+							currentIndex--;
+						}
 					}
 				}
-				shiftsList.Add(MonthRangeShifts[currentIndex]);
+				if(!endOfMonth) {
+					while(string.IsNullOrEmpty(MonthRangeShifts[currentIndex]) && !endOfMonth) {
+						shiftsList.Add(MonthRangeShifts[currentIndex++]);
+						if(currentIndex > MonthRangeShifts.Length - 1) {
+							if(ShiftsFile.LastMonthAvailable > EndDate.Month) {
+								var tempList = ShiftsFile.RequestNextMonth(this);
+								tempList.InsertRange(0, MonthRangeShifts);
+								MonthRangeShifts = tempList.ToArray();
+							}
+							else {
+								endOfMonth = true;
+								currentIndex--;
+							}
+						}
+					}
+					if(!endOfMonth)
+						shiftsList.Add(MonthRangeShifts[currentIndex]);
+				}
 				
-				TotalWorkingDaysAfterSwap = shiftsList.Count(s => !string.IsNullOrEmpty(s)) - 2;
+				for(int c = 1;c < shiftsList.Count;c++) {
+					if(string.IsNullOrEmpty(shiftsList[c]) && TotalWorkingDaysAfterSwap > 0)
+						break;
+					if(!string.IsNullOrEmpty(shiftsList[c]))
+						TotalWorkingDaysAfterSwap++;
+				}
+				
+//				TotalWorkingDaysAfterSwap = shiftsList.Count(s => !string.IsNullOrEmpty(s)) - 2;
 				
 				int daysOffCount = 0;
 				list.Clear();
@@ -544,7 +601,7 @@ namespace ShiftChanges
 				TimeOffAfterShiftsToSwap = CalculateTimeOff(list);
 			}
 			
-			TimeSpan CalculateTimeOff(List<string> shiftsList) {
+			public TimeSpan CalculateTimeOff(List<string> shiftsList) {
 				DateTime currentDate = new DateTime(1,1,1);
 				
 				int shiftEndHour = 8;

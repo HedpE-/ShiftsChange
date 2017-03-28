@@ -44,23 +44,42 @@ namespace ShiftChanges
 //			protected set { }
 //		}
 
-		public static Months LastMonthAvailable {
+		public static int LastMonthAvailable {
 			get {
-				int lastMonth = DateTime.Now.Month - 1;
-				if(Settings.existingFile != null) {
-					var nextMonthHeaderRange = package.Workbook.Worksheets[1].Cells[monthRanges[DateTime.Now.Month].ToString()];
-					var nextMonthShifts = package.Workbook.Worksheets[1].Cells[4, nextMonthHeaderRange.Start.Column, 65, nextMonthHeaderRange.End.Column];
-					foreach(var cell in nextMonthShifts) {
-						if(cell.Value.ToString() == "M" || cell.Value.ToString() == "A" || cell.Value.ToString() == "N") {
-							lastMonth++;
-							break;
-						}
+				int lastMonth = DateTime.Now.Month;
+				int personRow = 0;
+				foreach(var cell in package.Workbook.Worksheets[1].Cells["c:c"]) {
+					if(cell.Value != null) {
+						string[] nameArr = RAN[0].ToUpper().Split(' ');
+						if(cell.Text.ToUpper().RemoveDiacritics().Contains(nameArr[0].ToUpper().RemoveDiacritics()) &&
+						   cell.Text.ToUpper().RemoveDiacritics().Contains(nameArr[1].ToUpper().RemoveDiacritics()))
+							personRow = cell.Start.Row;
 					}
 				}
+				string[] nextMonthShifts = null;
+				do {
+					nextMonthShifts = GetAllShiftsInMonth(personRow, ++lastMonth);
+					for(int c = 0;c < nextMonthShifts.Length;c++)
+						if(nextMonthShifts[c].Contains("H") || nextMonthShifts[c] == "B" || nextMonthShifts[c] == "L")
+							nextMonthShifts[c] = string.Empty;
+				}
+				while(nextMonthShifts.Count(s => !string.IsNullOrEmpty(s)) > 0);
 				
-				return (Months)lastMonth;
+				return --lastMonth;
 			}
 			private set { }
+		}
+
+		static int FindPersonRow(string name) {
+			foreach(var cell in package.Workbook.Worksheets[1].Cells["c:c"]) {
+				if(cell.Value != null) {
+					string[] nameArr = name.ToUpper().Split(' ');
+					if(cell.Text.ToUpper().RemoveDiacritics().Contains(nameArr[0].ToUpper().RemoveDiacritics()) &&
+					   cell.Text.ToUpper().RemoveDiacritics().Contains(nameArr[1].ToUpper().RemoveDiacritics()))
+						return cell.Start.Row;
+				}
+			}
+			return 0;
 		}
 		
 		public static List<string> ShiftLeaders {
@@ -91,7 +110,7 @@ namespace ShiftChanges
 			}
 			catch {
 				if(Settings.existingFile != null) {
-					FileInfo tempShiftsFile = Settings.existingFile.CopyTo(Environment.SpecialFolder.ApplicationData + "\\" + Settings.existingFile.Name, true);
+					FileInfo tempShiftsFile = Settings.existingFile.CopyTo(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData) + "\\" + Settings.existingFile.Name, true);
 					package = new ExcelPackage(tempShiftsFile);
 				}
 				
@@ -332,18 +351,6 @@ namespace ShiftChanges
 			}
 			return list;
 		}
-
-//		static int FindPersonRow(string name) {
-//			foreach(var cell in package.Workbook.Worksheets[1].Cells["c:c"]) {
-//				if(cell.Value != null) {
-//					string[] nameArr = name.ToUpper().Split(' ');
-//					if(cell.Text.ToUpper().RemoveDiacritics().Contains(nameArr[0].ToUpper().RemoveDiacritics()) &&
-//					   cell.Text.ToUpper().RemoveDiacritics().Contains(nameArr[1].ToUpper().RemoveDiacritics()))
-//						return cell.Start.Row;
-//				}
-//			}
-//			return 0;
-//		}
 		
 		public static void ResolveShiftsSwapRequestAdresses(ref ShiftsSwapRequest req) {
 			FindRequestPeopleRows(ref req);

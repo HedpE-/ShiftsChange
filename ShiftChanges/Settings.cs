@@ -35,6 +35,6 @@ namespace ShiftChanges
 			set { pendingRequestApprovalFolder = value; }
 		}
 		
-		public static FileInfo existingFile = new FileInfo(Environment.GetFolderPath(Environment.SpecialFolder.Desktop) + @"\New Folder\Shift 2017_MAR.xlsx");
+		public static FileInfo existingFile = new FileInfo(Environment.GetFolderPath(Environment.SpecialFolder.Desktop) + @"\Shift 2017_MAR.xlsx");
 	}
 }
