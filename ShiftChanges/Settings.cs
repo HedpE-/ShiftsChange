@@ -17,7 +17,7 @@ namespace ShiftChanges
 	/// </summary>
 	public static class Settings
 	{
-		static string incomingRequestsFolder = "Trocas";
+		static string incomingRequestsFolder = "Trocas de turno";
 		public static string IncomingRequestsFolder {
 			get { return incomingRequestsFolder; }
 			set { incomingRequestsFolder = value; }

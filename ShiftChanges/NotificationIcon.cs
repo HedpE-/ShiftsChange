@@ -80,6 +80,9 @@ namespace ShiftChanges
 					// Set the URL.
 					service.Url = new Uri("https://outlook-north.vodafone.com/ews/exchange.asmx");
 					
+					CheckIfFoldersExist();
+					CheckIfRuleExists();
+					
 					ShiftsFile.Initiate();
 					
 					Application.Run();
@@ -90,13 +93,74 @@ namespace ShiftChanges
 				}
 			} // releases the Mutex
 		}
-		#endregion
 		
-		#region Event Handlers
-		void startServiceClick(object sender, EventArgs e) {
-			IncomingRequestsFolder = getExchangeFolderID(Settings.IncomingRequestsFolder);
-			ApprovedRequestsFolder = getExchangeFolderID(Settings.ApprovedRequestsFolder);
+		static void CheckIfFoldersExist() {
+			bool foldersCreated = false;
+			Folder Inbox = Folder.Bind(service, WellKnownFolderName.Inbox);
 			
+			IncomingRequestsFolder = getExchangeFolderID(Settings.IncomingRequestsFolder);
+			if(IncomingRequestsFolder == null) {
+				IncomingRequestsFolder = new Folder(service);
+				IncomingRequestsFolder.DisplayName = "Trocas de turno";
+				IncomingRequestsFolder.Save(Inbox.Id);
+				foldersCreated = true;
+			}
+			ApprovedRequestsFolder = getExchangeFolderID(Settings.ApprovedRequestsFolder);
+			if(ApprovedRequestsFolder == null) {
+				ApprovedRequestsFolder = new Folder(service);
+				ApprovedRequestsFolder.DisplayName = "Trocas Aprovadas";
+				ApprovedRequestsFolder.Save(Inbox.Id);
+				foldersCreated = true;
+			}
+			
+			if(foldersCreated)
+				MessageBox.Show('"' + Settings.IncomingRequestsFolder + '"' + " and " + '"' + Settings.ApprovedRequestsFolder + '"' + " folders were created in your Inbox.", "Folders created", MessageBoxButtons.OK, MessageBoxIcon.Information);
+		}
+		
+		static void CheckIfRuleExists() {
+			bool ruleCreated = false;
+			Folder Inbox = Folder.Bind(service, WellKnownFolderName.Inbox);
+			
+			AlternateId aiAlternateid = new AlternateId(IdFormat.EwsId, Inbox.Id.UniqueId, "mailbox@domain.com");
+			AlternateIdBase aiResponse = service.ConvertId(aiAlternateid, IdFormat.EwsId);
+			
+			RuleCollection inboxRules = null;
+
+			// Get the rules from the user's Inbox.
+			try
+			{
+				inboxRules = service.GetInboxRules(((AlternateId)aiResponse).Mailbox);
+			}
+			catch (ServiceResponseException ex)
+			{
+				Console.WriteLine("Error getting inbox rules: {0}", ex.ErrorCode.ToString());
+				return;
+			}
+			
+			if(inboxRules.Count(r => r.DisplayName == "Trocas de turno") == 0) {
+				Rule newRule = new Rule();
+
+				newRule.DisplayName = "Trocas de turno";
+				newRule.Priority = 1;
+				newRule.IsEnabled = true;
+				newRule.Conditions.ContainsSubjectStrings.Add("Troca de turno");
+				newRule.Actions.MoveToFolder = IncomingRequestsFolder.Id;
+				newRule.Actions.StopProcessingRules = true;
+
+				CreateRuleOperation createOperation = new CreateRuleOperation(newRule);
+
+				service.UpdateInboxRules(new RuleOperation[] { createOperation }, true);
+				ruleCreated = true;
+			}
+			
+			if(ruleCreated)
+				MessageBox.Show("A new rule was created and configured on your mailbox.\n" +
+				                "If you had any previous rules for emails containing\n" +
+				                '"' + "Troca de turno" + '"' + " on the subject, please delete or disable them.",
+				                "Rule created", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+		}
+		
+		void startServiceClick(object sender, EventArgs e) {
 			if(IncomingRequestsFolder != null) {
 				// Subscribe to streaming notifications in the Inbox.
 				StreamingSubscription streamingSubscription = service.SubscribeToStreamingNotifications(
@@ -205,8 +269,6 @@ namespace ShiftChanges
 		}
 		
 		void importShiftsFile(object sender, EventArgs e) {
-			IncomingRequestsFolder = getExchangeFolderID(Settings.IncomingRequestsFolder);
-			ApprovedRequestsFolder = getExchangeFolderID(Settings.ApprovedRequestsFolder);
 			// The search filter to get unread email.
 			SearchFilter sf = new SearchFilter.SearchFilterCollection(LogicalOperator.And, new SearchFilter.ContainsSubstring(EmailMessageSchema.Subject, "Troca de turno"));
 
@@ -289,7 +351,7 @@ namespace ShiftChanges
 		}
 		#endregion
 		
-		Folder getExchangeFolderID(string folder) {
+		static Folder getExchangeFolderID(string folder) {
 			//SetView
 			FolderView view = new FolderView(100);
 			view.PropertySet = new PropertySet(BasePropertySet.IdOnly);
@@ -301,7 +363,7 @@ namespace ShiftChanges
 				if(f.DisplayName == folder)
 					return f;
 			}
-			MessageBox.Show('"' + folder + '"' + " folder not found on Exchange Inbox Folder tree.\n\nPlease check the folders definitions on Settings.","Folder not found",MessageBoxButtons.OK,MessageBoxIcon.Error);
+//			MessageBox.Show('"' + folder + '"' + " folder not found on Exchange Inbox Folder tree.\n\nPlease check the folders definitions on Settings.","Folder not found",MessageBoxButtons.OK,MessageBoxIcon.Error);
 			return null;
 		}
 		
