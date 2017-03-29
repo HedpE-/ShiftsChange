@@ -133,7 +133,6 @@ namespace ShiftChanges
 			}
 			catch (ServiceResponseException ex)
 			{
-				Console.WriteLine("Error getting inbox rules: {0}", ex.ErrorCode.ToString());
 				return;
 			}
 			
@@ -156,7 +155,10 @@ namespace ShiftChanges
 			if(ruleCreated)
 				MessageBox.Show("A new rule was created and configured on your mailbox.\n" +
 				                "If you had any previous rules for emails containing\n" +
-				                '"' + "Troca de turno" + '"' + " on the subject, please delete or disable them.",
+				                '"' + "Troca de turno" + '"' + " on the subject, please delete or disable them.\n\n" +
+				                "Due to limitation on the Microsoft Exchange API, it isn't possible" +
+				                "to run the rule automatically so, please run the rule manually or" +
+				                "move all the emmails affected by the rule to the " + '"' + "Troca de turno" + '"' + "folder.",
 				                "Rule created", MessageBoxButtons.OK, MessageBoxIcon.Warning);
 		}
 		
