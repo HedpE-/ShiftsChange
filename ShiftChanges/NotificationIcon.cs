@@ -27,7 +27,6 @@ namespace ShiftChanges
 		ContextMenu notificationMenu;
 		static ExchangeService service;
 		static StreamingSubscriptionConnection connection;
-		static StreamingSubscriptionConnection connection2;
 		static Folder IncomingRequestsFolder;
 		static Folder ApprovedRequestsFolder;
 		static Folder PendingRequestApprovalFolder;
@@ -40,7 +39,7 @@ namespace ShiftChanges
 			
 			notifyIcon.MouseUp += IconMouseUp;
 			System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(NotificationIcon));
-			notifyIcon.Icon = (Icon)resources.GetObject("$this.Icon");
+			notifyIcon.Icon = Resources.AppIcon;
 			notifyIcon.ContextMenu = notificationMenu;
 		}
 		
@@ -74,6 +73,22 @@ namespace ShiftChanges
 					NotificationIcon notificationIcon = new NotificationIcon();
 					notificationIcon.notifyIcon.Visible = true;
 					
+					Settings.SettingsFile.LoadSettingsFile();
+					if(string.IsNullOrEmpty(Settings.SettingsFile.MasterKey)) {
+						if(Settings.CurrentUser.UserName == "PANCHOPJ") {
+							MessageBox.Show("Master Key not found, please define a new key.", "Master Key not found", MessageBoxButtons.OK, MessageBoxIcon.Error);
+							AuthForm auth = new AuthForm("Define");
+							auth.Show();
+						}
+						else {
+							MessageBox.Show("Master Key not found, for security reasons,\nonly Pedro Pancho is allowed to define a new key.\n\nQuiting application.", "Master Key not found", MessageBoxButtons.OK, MessageBoxIcon.Error);
+							Application.Exit();
+						}
+					}
+					else {
+						AuthForm auth = new AuthForm();
+						auth.Show();
+					}
 					// Create the binding.
 					service = new ExchangeService(ExchangeVersion.Exchange2010_SP2);
 					service.UseDefaultCredentials = true;
@@ -98,14 +113,14 @@ namespace ShiftChanges
 			bool foldersCreated = false;
 			Folder Inbox = Folder.Bind(service, WellKnownFolderName.Inbox);
 			
-			IncomingRequestsFolder = getExchangeFolderID(Settings.IncomingRequestsFolder);
+			IncomingRequestsFolder = getExchangeFolderID(Settings.ApplicationSettings.IncomingRequestsFolder);
 			if(IncomingRequestsFolder == null) {
 				IncomingRequestsFolder = new Folder(service);
 				IncomingRequestsFolder.DisplayName = "Trocas de turno";
 				IncomingRequestsFolder.Save(Inbox.Id);
 				foldersCreated = true;
 			}
-			ApprovedRequestsFolder = getExchangeFolderID(Settings.ApprovedRequestsFolder);
+			ApprovedRequestsFolder = getExchangeFolderID(Settings.ApplicationSettings.ApprovedRequestsFolder);
 			if(ApprovedRequestsFolder == null) {
 				ApprovedRequestsFolder = new Folder(service);
 				ApprovedRequestsFolder.DisplayName = "Trocas Aprovadas";
@@ -114,7 +129,7 @@ namespace ShiftChanges
 			}
 			
 			if(foldersCreated)
-				MessageBox.Show('"' + Settings.IncomingRequestsFolder + '"' + " and " + '"' + Settings.ApprovedRequestsFolder + '"' + " folders were created in your Inbox.", "Folders created", MessageBoxButtons.OK, MessageBoxIcon.Information);
+				MessageBox.Show('"' + Settings.ApplicationSettings.IncomingRequestsFolder + '"' + " and " + '"' + Settings.ApplicationSettings.ApprovedRequestsFolder + '"' + " folders were created in your Inbox.", "Folders created", MessageBoxButtons.OK, MessageBoxIcon.Information);
 		}
 		
 		static void CheckIfRuleExists() {
@@ -231,7 +246,7 @@ namespace ShiftChanges
 				}
 			}
 			
-			using (ExcelPackage package = new ExcelPackage(Settings.existingFile))
+			using (ExcelPackage package = new ExcelPackage(Settings.ApplicationSettings.existingFile))
 			{
 				// get the first worksheet in the workbook
 				ExcelWorksheet worksheet = package.Workbook.Worksheets[1];
@@ -327,7 +342,7 @@ namespace ShiftChanges
 		}
 		
 		void menuSettingsClick(object sender, EventArgs e) {
-			SettingsForm settings = new SettingsForm();
+			Settings.UI.SettingsForm settings = new Settings.UI.SettingsForm();
 			settings.Show();
 		}
 		

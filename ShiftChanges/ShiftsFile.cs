@@ -23,26 +23,6 @@ namespace ShiftChanges
 		static ExcelPackage package;
 		
 		static ArrayList monthRanges;
-		
-		public static readonly DirectoryInfo ShiftsDefaultLocation = new DirectoryInfo(@"\\vf-pt\fs\ANOC-UK\ANOC-UK 1st LINE\1. RAN 1st LINE\Shifts");
-		public static readonly DirectoryInfo OldShiftsDefaultLocation = new DirectoryInfo(@"\\vf-pt\fs\ANOC-UK\ANOC-UK 1st LINE\1. RAN 1st LINE\Shifts\Old");
-
-//		public static string FullName {
-//			get {
-//				return shiftsFile.FullName;
-//			}
-//			protected set { }
-//		}
-//
-//		public static bool Exists {
-//			get {
-//				if(shiftsFile != null)
-//					return shiftsFile.Exists;
-//				return false;
-//
-//			}
-//			protected set { }
-//		}
 
 		public static int LastMonthAvailable {
 			get {
@@ -106,11 +86,11 @@ namespace ShiftChanges
 		
 		public static void Initiate() {
 			try {
-				package = new ExcelPackage(Settings.existingFile);
+				package = new ExcelPackage(Settings.ApplicationSettings.existingFile);
 			}
 			catch {
-				if(Settings.existingFile != null) {
-					FileInfo tempShiftsFile = Settings.existingFile.CopyTo(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData) + "\\" + Settings.existingFile.Name, true);
+				if(Settings.ApplicationSettings.existingFile != null) {
+					FileInfo tempShiftsFile = Settings.ApplicationSettings.existingFile.CopyTo(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData) + "\\" + Settings.ApplicationSettings.existingFile.Name, true);
 					package = new ExcelPackage(tempShiftsFile);
 				}
 				
@@ -215,7 +195,7 @@ namespace ShiftChanges
 			if(request.StartDate.Month > 1)
 				list = GetAllShiftsInMonth(request.PersonRow, request.StartDate.Month - 1).ToList();
 			else {
-				var foundFiles = OldShiftsDefaultLocation.GetFiles("*shift*" + (request.StartDate.Year - 1) + "*.xlsx", SearchOption.TopDirectoryOnly);
+				var foundFiles = Settings.ApplicationSettings.OldShiftsDefaultLocation.GetFiles("*shift*" + (request.StartDate.Year - 1) + "*.xlsx", SearchOption.TopDirectoryOnly);
 				
 				FileInfo foundFile = null;
 				if(foundFiles.Length > 1) {
@@ -233,8 +213,8 @@ namespace ShiftChanges
 					pack = new ExcelPackage(foundFile);
 				}
 				catch {
-					if(Settings.existingFile != null) {
-						FileInfo tempShiftsFile = Settings.existingFile.CopyTo(Environment.SpecialFolder.ApplicationData + "\\" + Settings.existingFile.Name, true);
+					if(Settings.ApplicationSettings.existingFile != null) {
+						FileInfo tempShiftsFile = Settings.ApplicationSettings.existingFile.CopyTo(Environment.SpecialFolder.ApplicationData + "\\" + Settings.ApplicationSettings.existingFile.Name, true);
 						pack = new ExcelPackage(tempShiftsFile);
 					}
 					
@@ -285,7 +265,7 @@ namespace ShiftChanges
 			if(request.StartDate.Month < 12)
 				list = GetAllShiftsInMonth(request.PersonRow, request.StartDate.Month + 1).ToList();
 			else {
-				var foundFiles = ShiftsDefaultLocation.GetFiles("*shift*" + (request.StartDate.Year + 1) + "*.xlsx", SearchOption.TopDirectoryOnly);
+				var foundFiles = Settings.ApplicationSettings.ShiftsDefaultLocation.GetFiles("*shift*" + (request.StartDate.Year + 1) + "*.xlsx", SearchOption.TopDirectoryOnly);
 				
 				FileInfo foundFile = null;
 				if(foundFiles.Length > 1) {
@@ -305,8 +285,8 @@ namespace ShiftChanges
 					pack = new ExcelPackage(foundFile);
 				}
 				catch {
-					if(Settings.existingFile != null) {
-						FileInfo tempShiftsFile = Settings.existingFile.CopyTo(Environment.SpecialFolder.ApplicationData + "\\" + Settings.existingFile.Name, true);
+					if(Settings.ApplicationSettings.existingFile != null) {
+						FileInfo tempShiftsFile = Settings.ApplicationSettings.existingFile.CopyTo(Environment.SpecialFolder.ApplicationData + "\\" + Settings.ApplicationSettings.existingFile.Name, true);
 						pack = new ExcelPackage(tempShiftsFile);
 					}
 					

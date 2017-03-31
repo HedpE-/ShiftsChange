@@ -10,7 +10,7 @@ using System;
 using System.Drawing;
 using System.Windows.Forms;
 
-namespace ShiftChanges
+namespace ShiftChanges.Settings.UI
 {
 	/// <summary>
 	/// Description of SettingsForm.
@@ -20,6 +20,9 @@ namespace ShiftChanges
 		public SettingsForm()
 		{
 			InitializeComponent();
+			// Master mode pass
+			// shifts default location
+			// old shifts default location
 		}
 	}
 }

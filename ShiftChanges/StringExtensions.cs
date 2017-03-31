@@ -53,4 +53,26 @@ public static class StringExtensions
 
 		return stringBuilder.ToString().Normalize(NormalizationForm.FormC);
 	}
+	
+	public static String EncryptText(this string str) {
+		if(!string.IsNullOrEmpty(str)) {
+			string text = string.Empty;
+			foreach (char ch in str)
+				text += Convert.ToInt32(ch).ToString("x");
+			str = text;
+		}
+		return str;
+	}
+	
+	public static String DecryptText(this string str) {
+		if(!string.IsNullOrEmpty(str)) {
+			str = str.Replace(" ", "");
+			byte[] bytes = new byte[str.Length / 2];
+			for (int i = 0; i < bytes.Length; i++)
+				bytes[i] = Convert.ToByte(str.Substring(i * 2, 2), 0x10);
+			
+			str = Encoding.ASCII.GetString(bytes);
+		}
+		return str;
+	}
 }
