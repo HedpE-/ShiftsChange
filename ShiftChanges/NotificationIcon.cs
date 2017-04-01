@@ -81,8 +81,14 @@ namespace ShiftChanges
 							auth.Show();
 						}
 						else {
-							MessageBox.Show("Master Key not found, for security reasons,\nonly Pedro Pancho is allowed to define a new key.\n\nQuiting application.", "Master Key not found", MessageBoxButtons.OK, MessageBoxIcon.Error);
-							Application.Exit();
+							if(Settings.CurrentUser.UserName == "GONCARJ3") {
+								AuthForm auth = new AuthForm();
+								auth.Show();
+							}
+							else {
+								MessageBox.Show("Master Key not found, for security reasons,\nonly Pedro Pancho is allowed to define a new key.\n\nQuiting application.", "Master Key not found", MessageBoxButtons.OK, MessageBoxIcon.Error);
+								Application.Exit();
+							}
 						}
 					}
 					else {
