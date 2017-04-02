@@ -1123,6 +1123,8 @@
     <Compile Include="Settings\CurrentUser.cs" />
     <Compile Include="Settings\ApplicationSettings.cs" />
     <Compile Include="Settings\SettingsFile.cs" />
+    <Compile Include="Settings\UI\AuthenticationSettingsPanel.cs" />
+    <Compile Include="Settings\UI\FoldersSettingsPanel.cs" />
     <Compile Include="Settings\UI\SettingsForm.cs" />
     <Compile Include="Settings\UI\SettingsForm.Designer.cs">
       <DependentUpon>SettingsForm.cs</DependentUpon>

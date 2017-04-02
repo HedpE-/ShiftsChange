@@ -198,11 +198,8 @@ namespace ShiftChanges
 				var foundFiles = Settings.ApplicationSettings.OldShiftsDefaultLocation.GetFiles("*shift*" + (request.StartDate.Year - 1) + "*.xlsx", SearchOption.TopDirectoryOnly);
 				
 				FileInfo foundFile = null;
-				if(foundFiles.Length > 1) {
+				if(foundFiles.Length > 1)
 					foundFile = foundFiles.Aggregate((f1, f2) => f1.Length > f2.Length ? f1 : f2);
-//					var biggestFile = foundFiles.Max(f => f.Length);
-//					foundFile = foundFiles.First(f => f.Length == biggestFile);
-				}
 				else {
 					if(foundFiles.Length == 1)
 						foundFile = foundFiles[0];

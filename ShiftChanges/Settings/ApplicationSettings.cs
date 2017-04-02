@@ -138,7 +138,9 @@ namespace ShiftChanges.Settings
 			if(string.IsNullOrEmpty(SettingsFile.ShareRootFolderPath) ||
 			   string.IsNullOrEmpty(SettingsFile.ShiftsFolderPath) ||
 			   string.IsNullOrEmpty(SettingsFile.OldShiftsFolderPath)) {
-				
+				MessageBox.Show("Default Folders settings not found, please update the application settings.", "Default folders not found", MessageBoxButtons.OK, MessageBoxIcon.Error);
+				Settings.UI.SettingsForm settings = new Settings.UI.SettingsForm();
+				settings.ShowDialog();
 			}
 			ShareRootDir = new DirectoryInfo(SettingsFile.ShareRootFolderPath);
 			ShiftsDefaultLocation = new DirectoryInfo(SettingsFile.ShiftsFolderPath);

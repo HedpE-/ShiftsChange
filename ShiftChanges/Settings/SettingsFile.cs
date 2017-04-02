@@ -76,7 +76,7 @@ namespace ShiftChanges.Settings
 			if(!settingsFile.Exists)
 				CreateSettingsFile();
 			CheckXMLIntegrity();
-			ApplicationSettings.InitializeSettings();
+//			ApplicationSettings.InitializeSettings();
 		}
 		
 		static void CheckXMLIntegrity()
@@ -90,7 +90,7 @@ namespace ShiftChanges.Settings
 			if (document.GetElementsByTagName("ShareRootFolderPath").Count == 0) {
 				documentElement = document.DocumentElement;
 				element = document.CreateElement("ShareRootFolderPath");
-//				element.InnerText = UserFolder.FullName;
+				element.InnerText = @"\\vf-pt\fs\ANOC-UK";
 				documentElement.AppendChild(element);
 			}
 			if (document.GetElementsByTagName("ShiftsFolderPath").Count == 0) {
@@ -128,7 +128,7 @@ namespace ShiftChanges.Settings
 			new XDocument(
 				new object[] {
 					new XElement("ApplicationSettings", new object[] {
-					             	new XElement("ShareRootFolderPath"),
+					             	new XElement("ShareRootFolderPath", @"\\vf-pt\fs\ANOC-UK"),
 					             	new XElement("ShiftsFolderPath"),
 					             	new XElement("OldShiftsFolderPath"),
 					             	new XElement("MasterKey")

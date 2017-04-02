@@ -90,11 +90,14 @@ namespace ShiftChanges
 								Application.Exit();
 							}
 						}
+						
 					}
 					else {
 						AuthForm auth = new AuthForm();
 						auth.Show();
 					}
+					Settings.ApplicationSettings.InitializeSettings();
+					
 					// Create the binding.
 					service = new ExchangeService(ExchangeVersion.Exchange2010_SP2);
 					service.UseDefaultCredentials = true;
