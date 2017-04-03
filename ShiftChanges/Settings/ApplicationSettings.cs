@@ -7,11 +7,7 @@
  * To change this template use Tools | Options | Coding | Edit Standard Headers.
  */
 using System;
-using System.ComponentModel;
 using System.IO;
-using System.DirectoryServices;
-using System.DirectoryServices.AccountManagement;
-using System.Globalization;
 using System.Threading;
 using System.Windows.Forms;
 
@@ -40,42 +36,14 @@ namespace ShiftChanges.Settings
 			set { pendingRequestApprovalFolder = value; }
 		}
 		
-		public static DirectoryInfo ShareRootDir; // = new DirectoryInfo(@"\\vf-pt\fs\ANOC-UK\ANOC-UK 1st LINE\1. RAN 1st LINE\ANOC Master Tool");
+		public static DirectoryInfo ShareRootDir;
 		
-		public static DirectoryInfo ShiftsDefaultLocation; // = new DirectoryInfo(@"\\vf-pt\fs\ANOC-UK\ANOC-UK 1st LINE\1. RAN 1st LINE\Shifts");
-		public static DirectoryInfo OldShiftsDefaultLocation; // = new DirectoryInfo(@"\\vf-pt\fs\ANOC-UK\ANOC-UK 1st LINE\1. RAN 1st LINE\Shifts\Old");
+		public static DirectoryInfo ShiftsDefaultLocation;
+		public static DirectoryInfo OldShiftsDefaultLocation;
+		public static DirectoryInfo DevMode_ShiftsDefaultLocation;
+		public static DirectoryInfo DevMode_OldShiftsDefaultLocation;
 		
-		public static FileInfo existingFile = new FileInfo(Environment.GetFolderPath(Environment.SpecialFolder.Desktop) + @"\Shift 2017_MAR.xlsx");
-		
-//		public static CultureInfo culture = new CultureInfo("pt-PT");
-//		public static DateTime dt = DateTime.Parse(DateTime.Now.ToString(), culture);
-		
-//		static bool _shareAccess = true;
-//		public static bool shareAccess {
-//			get {
-//				return _shareAccess;
-//			}
-//			set {
-//				_shareAccess = value;
-////				if(UserFolder.FullName != null)
-////					MainForm.trayIcon.toggleShareAccess();
-//			}
-//		}
-//		
-//		public static void CheckShareAccess() {
-//			if(ShareRootDir == null) {
-//				MessageBox.Show("
-//				InitializeSettings();
-//			}
-//			if(!ShareRootDir.Exists) {
-//				InitializeSettings();
-//			}
-//				
-//			if(!IsDirectoryWritable(ShareRootDir.FullName)) {
-////				MainForm.trayIcon.showBalloon("Network share access denied","Access to the network share was denied! Your settings file will be created on the following path:" + Environment.NewLine + Environment.NewLine + Environment.GetFolderPath(Environment.SpecialFolder.Desktop) + "\\ANOC Master Tool\\UserSettings\\");
-//				shareAccess = false;
-//			}
-//		}
+		public static bool DevMode = false;
 
 		public static bool IsDirectoryWritable(string dirPath, bool throwIfFails = false)
 		{
@@ -102,49 +70,27 @@ namespace ShiftChanges.Settings
 			return networkAccess;
 		}
 		
-		/// <summary>
-		/// Valid queries: "Name", "Username", "Department" or "NetworkDomain"
-		/// </summary>
-		public static string GetUserDetails(string detail)
-		{
-			UserPrincipal current = UserPrincipal.Current;
-			if (detail != null)
-			{
-				switch(detail) {
-					case "Name":
-						if(current.SamAccountName.Contains("Caramelos"))
-							return "Gonçalves, Rui";
-						return current.DisplayName;
-					case "Username":
-						return current.SamAccountName;
-					case "Department":
-						if(current.SamAccountName.Contains("Caramelos"))
-							return "1st Line RAN";
-						else {
-							DirectoryEntry underlyingObject = current.GetUnderlyingObject() as DirectoryEntry;
-							if(underlyingObject.Properties.Contains("department")) {
-								return underlyingObject.Properties["department"].Value.ToString();
-							}
-						}
-						break;
-					case "NetworkDomain":
-						return System.Net.NetworkInformation.IPGlobalProperties.GetIPGlobalProperties().DomainName;
+		public static void InitializeSettings() {
+			DialogResult ans = DialogResult.OK;
+			if(string.IsNullOrEmpty(SettingsFile.ShiftsFolderPath) ||  string.IsNullOrEmpty(SettingsFile.OldShiftsFolderPath)) {
+				MessageBox.Show("Default Folders settings not found, please update the application settings.", "Default folders not found", MessageBoxButtons.OK, MessageBoxIcon.Error);
+				Settings.UI.SettingsForm settings = new Settings.UI.SettingsForm("Folders");
+				ans = settings.ShowDialog();
+			}
+			if(ans == DialogResult.OK) {
+				ShareRootDir = new DirectoryInfo(SettingsFile.ShareRootFolderPath);
+				if(!DevMode) {
+					ShiftsDefaultLocation = new DirectoryInfo(SettingsFile.ShiftsFolderPath);
+					OldShiftsDefaultLocation = new DirectoryInfo(SettingsFile.OldShiftsFolderPath);
 				}
 			}
-			return string.Empty;
-		}
-		
-		public static void InitializeSettings() {
-			if(string.IsNullOrEmpty(SettingsFile.ShareRootFolderPath) ||
-			   string.IsNullOrEmpty(SettingsFile.ShiftsFolderPath) ||
-			   string.IsNullOrEmpty(SettingsFile.OldShiftsFolderPath)) {
-				MessageBox.Show("Default Folders settings not found, please update the application settings.", "Default folders not found", MessageBoxButtons.OK, MessageBoxIcon.Error);
-				Settings.UI.SettingsForm settings = new Settings.UI.SettingsForm();
-				settings.ShowDialog();
+			else {
+				MessageBox.Show("Mandatory settings are missing and Settings window was cancelled, terminating application.", "Quitting", MessageBoxButtons.OK, MessageBoxIcon.Error);
+				if (Application.MessageLoop)
+					Application.Exit();
+				else
+					Environment.Exit(1);
 			}
-			ShareRootDir = new DirectoryInfo(SettingsFile.ShareRootFolderPath);
-			ShiftsDefaultLocation = new DirectoryInfo(SettingsFile.ShiftsFolderPath);
-			OldShiftsDefaultLocation = new DirectoryInfo(SettingsFile.OldShiftsFolderPath);
 		}
 	}
 }

@@ -10,10 +10,7 @@ using Microsoft.Exchange.WebServices.Data;
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Drawing;
-using System.IO;
 using System.Linq;
-using System.Text.RegularExpressions;
 using System.Threading;
 using System.Windows.Forms;
 using OfficeOpenXml;
@@ -25,8 +22,10 @@ namespace ShiftChanges
 	{
 		NotifyIcon notifyIcon;
 		ContextMenu notificationMenu;
+		
 		static ExchangeService service;
 		static StreamingSubscriptionConnection connection;
+		
 		static Folder IncomingRequestsFolder;
 		static Folder ApprovedRequestsFolder;
 		static Folder PendingRequestApprovalFolder;
@@ -47,7 +46,7 @@ namespace ShiftChanges
 		{
 			MenuItem[] menu = new MenuItem[] {
 				new MenuItem("Start Service", startServiceClick),
-				new MenuItem("Import Shifts File", importShiftsFile),
+				new MenuItem("Start for Existing Items", RunOnExistingItems),
 				new MenuItem("Settings", menuSettingsClick),
 				new MenuItem("About", menuAboutClick),
 				new MenuItem("Exit", menuExitClick)
@@ -74,43 +73,70 @@ namespace ShiftChanges
 					notificationIcon.notifyIcon.Visible = true;
 					
 					Settings.SettingsFile.LoadSettingsFile();
+//					Settings.CurrentUser.OtherUser = "SOROKIND2";
+					DialogResult enteredValidKey = DialogResult.Abort;
 					if(string.IsNullOrEmpty(Settings.SettingsFile.MasterKey)) {
 						if(Settings.CurrentUser.UserName == "PANCHOPJ") {
 							MessageBox.Show("Master Key not found, please define a new key.", "Master Key not found", MessageBoxButtons.OK, MessageBoxIcon.Error);
-							AuthForm auth = new AuthForm("Define");
-							auth.Show();
+							AuthForm auth = new AuthForm(AuthForm.UiModes.Define);
+							enteredValidKey = auth.ShowDialog();
 						}
 						else {
 							if(Settings.CurrentUser.UserName == "GONCARJ3") {
 								AuthForm auth = new AuthForm();
-								auth.Show();
+								enteredValidKey = auth.ShowDialog();
 							}
 							else {
-								MessageBox.Show("Master Key not found, for security reasons,\nonly Pedro Pancho is allowed to define a new key.\n\nQuiting application.", "Master Key not found", MessageBoxButtons.OK, MessageBoxIcon.Error);
-								Application.Exit();
+								MessageBox.Show("Master Key not found, for security reasons,\nonly Pedro Pancho is allowed to define a new key.\n\nTerminating application.", "Master Key not found", MessageBoxButtons.OK, MessageBoxIcon.Error);
+								if (Application.MessageLoop)
+									Application.Exit();
+								else
+									Environment.Exit(1);
 							}
 						}
 						
 					}
 					else {
 						AuthForm auth = new AuthForm();
-						auth.Show();
+						enteredValidKey = auth.ShowDialog();
 					}
-					Settings.ApplicationSettings.InitializeSettings();
-					
-					// Create the binding.
-					service = new ExchangeService(ExchangeVersion.Exchange2010_SP2);
-					service.UseDefaultCredentials = true;
-					// Set the URL.
-					service.Url = new Uri("https://outlook-north.vodafone.com/ews/exchange.asmx");
-					
-					CheckIfFoldersExist();
-					CheckIfRuleExists();
-					
-					ShiftsFile.Initiate();
-					
-					Application.Run();
-					notificationIcon.notifyIcon.Dispose();
+					if(enteredValidKey == DialogResult.OK) {
+						Settings.ApplicationSettings.InitializeSettings();
+						
+						if(Settings.ApplicationSettings.DevMode && (Settings.ApplicationSettings.DevMode_ShiftsDefaultLocation == null || Settings.ApplicationSettings.DevMode_OldShiftsDefaultLocation == null)) {
+							MessageBox.Show("You're running the application on Developer Mode, this mode needs the shifts folders to be local since it's meant for testing.\n\nPlease define local folders.", "Dev Mode", MessageBoxButtons.OK, MessageBoxIcon.Information);
+							Settings.UI.SettingsForm settings = new Settings.UI.SettingsForm("Folders");
+							DialogResult ans = settings.ShowDialog();
+							if(ans != DialogResult.OK) {
+								MessageBox.Show("Mandatory settings are missing and Settings window was cancelled, terminating application.", "Quitting", MessageBoxButtons.OK, MessageBoxIcon.Error);
+								if (Application.MessageLoop)
+									Application.Exit();
+								else
+									Environment.Exit(1);
+							}
+						}
+						
+						// Create the binding.
+						service = new ExchangeService(ExchangeVersion.Exchange2010_SP2);
+						service.UseDefaultCredentials = true;
+						// Set the URL.
+						service.Url = new Uri("https://outlook-north.vodafone.com/ews/exchange.asmx");
+						
+						CheckIfFoldersExist();
+						CheckIfRuleExists();
+						
+						ShiftsFile.Initiate();
+						
+						Application.Run();
+						notificationIcon.notifyIcon.Dispose();
+					}
+					else {
+						MessageBox.Show("Master Key not entered, terminating application.", "Quitting", MessageBoxButtons.OK, MessageBoxIcon.Error);
+						if (Application.MessageLoop)
+							Application.Exit();
+						else
+							Environment.Exit(1);
+					}
 				} else {
 					// The application is already running
 					Application.Exit();
@@ -119,26 +145,39 @@ namespace ShiftChanges
 		}
 		
 		static void CheckIfFoldersExist() {
-			bool foldersCreated = false;
+			bool IncomingFolderCreated = false;
+			bool ApprovedFolderCreated = false;
+			bool PendingFolderCreated = false;
 			Folder Inbox = Folder.Bind(service, WellKnownFolderName.Inbox);
 			
 			IncomingRequestsFolder = getExchangeFolderID(Settings.ApplicationSettings.IncomingRequestsFolder);
 			if(IncomingRequestsFolder == null) {
 				IncomingRequestsFolder = new Folder(service);
-				IncomingRequestsFolder.DisplayName = "Trocas de turno";
+				IncomingRequestsFolder.DisplayName = Settings.ApplicationSettings.IncomingRequestsFolder;
 				IncomingRequestsFolder.Save(Inbox.Id);
-				foldersCreated = true;
+				IncomingFolderCreated = true;
 			}
 			ApprovedRequestsFolder = getExchangeFolderID(Settings.ApplicationSettings.ApprovedRequestsFolder);
 			if(ApprovedRequestsFolder == null) {
 				ApprovedRequestsFolder = new Folder(service);
-				ApprovedRequestsFolder.DisplayName = "Trocas Aprovadas";
+				ApprovedRequestsFolder.DisplayName = Settings.ApplicationSettings.ApprovedRequestsFolder;
 				ApprovedRequestsFolder.Save(Inbox.Id);
-				foldersCreated = true;
+				ApprovedFolderCreated = true;
+			}
+			PendingRequestApprovalFolder = getExchangeFolderID(Settings.ApplicationSettings.PendingRequestApprovalFolder);
+			if(PendingRequestApprovalFolder == null) {
+				PendingRequestApprovalFolder = new Folder(service);
+				PendingRequestApprovalFolder.DisplayName = Settings.ApplicationSettings.PendingRequestApprovalFolder;
+				PendingRequestApprovalFolder.Save(Inbox.Id);
+				PendingFolderCreated = true;
 			}
 			
-			if(foldersCreated)
-				MessageBox.Show('"' + Settings.ApplicationSettings.IncomingRequestsFolder + '"' + " and " + '"' + Settings.ApplicationSettings.ApprovedRequestsFolder + '"' + " folders were created in your Inbox.", "Folders created", MessageBoxButtons.OK, MessageBoxIcon.Information);
+			if(IncomingFolderCreated || ApprovedFolderCreated || PendingFolderCreated) {
+				string message = IncomingFolderCreated ? '"' + Settings.ApplicationSettings.IncomingRequestsFolder + '"' : string.Empty;
+				message += ApprovedFolderCreated ? (!string.IsNullOrEmpty(message) ? " and " + '"' + Settings.ApplicationSettings.ApprovedRequestsFolder + '"' : '"' + Settings.ApplicationSettings.ApprovedRequestsFolder + '"') : string.Empty;
+				message += PendingFolderCreated ? (!string.IsNullOrEmpty(message) ? " and "  + '"' + Settings.ApplicationSettings.PendingRequestApprovalFolder + '"' : '"' + Settings.ApplicationSettings.PendingRequestApprovalFolder + '"') : string.Empty;
+				MessageBox.Show(message + " folders were created in your Inbox.", "Folders created", MessageBoxButtons.OK, MessageBoxIcon.Information);
+			}
 		}
 		
 		static void CheckIfRuleExists() {
@@ -255,7 +294,7 @@ namespace ShiftChanges
 				}
 			}
 			
-			using (ExcelPackage package = new ExcelPackage(Settings.ApplicationSettings.existingFile))
+			using (ExcelPackage package = new ExcelPackage(ShiftsFile.existingFile))
 			{
 				// get the first worksheet in the workbook
 				ExcelWorksheet worksheet = package.Workbook.Worksheets[1];
@@ -294,17 +333,20 @@ namespace ShiftChanges
 			} // the using statement automatically calls Dispose() which closes the package.
 		}
 		
-		void importShiftsFile(object sender, EventArgs e) {
+		void RunOnExistingItems(object sender, EventArgs e) {
 			// The search filter to get unread email.
 			SearchFilter sf = new SearchFilter.SearchFilterCollection(LogicalOperator.And, new SearchFilter.ContainsSubstring(EmailMessageSchema.Subject, "Troca de turno"));
 
 			ItemView itemview = new ItemView(1);
 
-			// Fire the query for the unread items.
-			// This method call results in a FindItem call to EWS.
-			FindItemsResults<Item> findResults = service.FindItems(IncomingRequestsFolder.Id, sf, itemview);
 			
-			if(findResults.Items.Count > 0) {
+			bool moreItems = true;
+			while(moreItems) {
+				// Fire the query for the unread items.
+				// This method call results in a FindItem call to EWS.
+				FindItemsResults<Item> findResults = service.FindItems(IncomingRequestsFolder.Id, sf, itemview);
+				moreItems = findResults.MoreAvailable;
+				
 				PropertySet itempropertyset = new PropertySet(BasePropertySet.FirstClassProperties);
 				itempropertyset.RequestedBodyType = BodyType.Text;
 				Item item = findResults.Items[0];
@@ -318,6 +360,8 @@ namespace ShiftChanges
 					commitRequest(swapRequest);
 				else
 					MessageBox.Show(swapRequest.ValidationMessage);
+				
+				itemview.Offset += 1;
 			}
 		}
 		

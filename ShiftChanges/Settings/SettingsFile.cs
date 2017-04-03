@@ -7,7 +7,6 @@
  * To change this template use Tools | Options | Coding | Edit Standard Headers.
  */
 using System;
-using System.Diagnostics;
 using System.IO;
 using System.Xml;
 using System.Xml.Linq;
@@ -76,7 +75,6 @@ namespace ShiftChanges.Settings
 			if(!settingsFile.Exists)
 				CreateSettingsFile();
 			CheckXMLIntegrity();
-//			ApplicationSettings.InitializeSettings();
 		}
 		
 		static void CheckXMLIntegrity()

@@ -19,41 +19,63 @@ namespace ShiftChanges.Settings
 	{
 		public static string UserName
 		{
-			get;
-			private set;
+			get { return GetUserDetails("Username"); }
+			private set { }
 		}
 		public static string[] FullName
 		{
-			get;
-			private set;
+			get {
+				string[] fullName = GetUserDetails("Name").Split(' ');
+				for (int c = 0; c < fullName.Length; c++)
+					fullName[c] = fullName[c].Replace(",", string.Empty);
+				return fullName;
+			}
+			private set { }
 		}
 		public static string Department
 		{
-			get;
-			private set;
+			get { return GetUserDetails("Department"); }
+			private set { }
 		}
 		public static string NetworkDomain
 		{
 			get { return GetUserDetails("NetworkDomain"); }
 			private set { }
 		}
+		
+		public static string OtherUser;
+		static UserPrincipal ActiveDirectoryUser;
 
-		public static void InitializeUserProperties()
-		{
-			UserName = GetUserDetails("Username");
-			FullName = GetUserDetails("Name").Split(' ');
-			for (int c = 0; c < FullName.Length; c++)
-				FullName[c] = FullName[c].Replace(",", string.Empty);
-			Department = GetUserDetails("Department").Contains("2nd Line RAN") ? "2nd Line RAN Support" : "1st Line RAN Support";
-		}
+//		public static void InitializeUserProperties()
+//		{
+//			UserName = GetUserDetails("Username");
+//			FullName = GetUserDetails("Name").Split(' ');
+//			for (int c = 0; c < FullName.Length; c++)
+//				FullName[c] = FullName[c].Replace(",", string.Empty);
+//			Department = GetUserDetails("Department").Contains("2nd Line RAN") ? "2nd Line RAN Support" : "1st Line RAN Support";
+//		}
 
 		/// <summary>
 		/// Valid queries: "Name", "Username", "Department" or "NetworkDomain"
 		/// </summary>
 		public static string GetUserDetails(string detail)
 		{
-			UserPrincipal ActiveDirectoryUser = UserPrincipal.Current;
-			
+			if(ActiveDirectoryUser == null) {
+				if(string.IsNullOrEmpty(OtherUser))
+					ActiveDirectoryUser = UserPrincipal.Current;
+				else {
+					var ctx = new PrincipalContext(ContextType.Domain);
+					try {
+						ActiveDirectoryUser = UserPrincipal.FindByIdentity(ctx,
+						                                                   IdentityType.SamAccountName,
+						                                                   OtherUser);
+					}
+					catch (Exception e) {
+						var m = e.Message;
+						ActiveDirectoryUser = UserPrincipal.Current;
+					}
+				}
+			}
 			if(!string.IsNullOrEmpty(detail))
 			{
 				switch (detail)

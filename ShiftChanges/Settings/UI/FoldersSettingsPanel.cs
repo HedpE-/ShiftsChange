@@ -44,7 +44,7 @@ namespace ShiftChanges.Settings.UI
 			Button btn = sender as Button;
 			
 			FolderBrowserDialog browse = new FolderBrowserDialog();
-			browse.SelectedPath = SettingsFile.ShareRootFolderPath;
+			browse.SelectedPath = ApplicationSettings.DevMode ? Environment.GetFolderPath(Environment.SpecialFolder.Desktop) : SettingsFile.ShareRootFolderPath;
 			browse.ShowNewFolderButton = false;
 			DialogResult ans = browse.ShowDialog();
 			
@@ -66,8 +66,7 @@ namespace ShiftChanges.Settings.UI
 			// 
 			// ShiftsFolderLabel
 			// 
-//			ShiftsFolderLabel.Location = new Point(4, ShareRootFolderLabel.Bottom + 5);
-			ShiftsFolderLabel.Location = new Point(4, 15);
+			ShiftsFolderLabel.Location = new Point(4, 30);
 			ShiftsFolderLabel.Name = "ShiftsFolderLabel";
 			ShiftsFolderLabel.Size = new Size(90, 20);
 			ShiftsFolderLabel.Text = "Shifts Folder";
@@ -114,13 +113,10 @@ namespace ShiftChanges.Settings.UI
 			OldShiftsFolderButton.Click += BrowseButtonsClick;
 			
 			Controls.AddRange(new Control[] {
-//			                  	ShareRootFolderLabel,
 			                  	ShiftsFolderLabel,
 			                  	OldShiftsFolderLabel,
-//			                  	ShareRootFolderTextBox,
 			                  	ShiftsFolderTextBox,
 			                  	OldShiftsFolderTextBox,
-//			                  	ShareRootFolderButton,
 			                  	ShiftsFolderButton,
 			                  	OldShiftsFolderButton
 			                  });

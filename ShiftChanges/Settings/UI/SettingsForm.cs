@@ -8,6 +8,7 @@
  */
 using System;
 using System.Drawing;
+using System.IO;
 using System.Windows.Forms;
 
 namespace ShiftChanges.Settings.UI
@@ -20,7 +21,11 @@ namespace ShiftChanges.Settings.UI
 		FoldersSettingsPanel foldersSettingsPanel = new FoldersSettingsPanel();
 		AuthenticationSettingsPanel authenticationSettingsPanel = new AuthenticationSettingsPanel();
 		
-		public SettingsForm()
+		/// <summary>
+		/// SettingsForm.
+		/// </summary>
+		/// <param name="selectItem">Optional: "Auth" or "Folders"</param>"
+		public SettingsForm(string selectItem = "")
 		{
 			InitializeComponent();
 			foldersSettingsPanel.Location =
@@ -30,8 +35,23 @@ namespace ShiftChanges.Settings.UI
 			foldersSettingsPanel.BorderStyle =
 				authenticationSettingsPanel.BorderStyle = BorderStyle.FixedSingle;
 			
-			foldersSettingsPanel.ShiftsFolder = SettingsFile.ShiftsFolderPath;
-			foldersSettingsPanel.OldShiftsFolder = SettingsFile.OldShiftsFolderPath;
+			if(ApplicationSettings.DevMode) {
+				foldersSettingsPanel.ShiftsFolder = ApplicationSettings.DevMode_ShiftsDefaultLocation == null ?
+					string.Empty :
+					ApplicationSettings.DevMode_ShiftsDefaultLocation.FullName;
+				
+				foldersSettingsPanel.OldShiftsFolder = ApplicationSettings.DevMode ?
+					string.Empty :
+					ApplicationSettings.DevMode_OldShiftsDefaultLocation.FullName;
+			}
+			else {
+				foldersSettingsPanel.ShiftsFolder = SettingsFile.ShiftsFolderPath;
+				foldersSettingsPanel.OldShiftsFolder = SettingsFile.OldShiftsFolderPath;
+			}
+			if(!string.IsNullOrEmpty(selectItem)) {
+				if(selectItem == "Folders")
+					treeView1.SelectedNode = treeView1.Nodes[0].Nodes[selectItem == "Folders" ? 1 : 0];
+			}
 		}
 		
 		void TreeView1AfterSelect(object sender, TreeViewEventArgs e)
@@ -48,32 +68,42 @@ namespace ShiftChanges.Settings.UI
 				default:
 					Controls.Remove(authenticationSettingsPanel);
 					Controls.Remove(foldersSettingsPanel);
-					break;					
+					break;
 			}
-//			if(_currentControl != null) {
-//				Controls.Remove(_currentControl);
-//				_currentControl = null;
-//			}
-//			
-//			// if no type is bound to the node, just leave the panel empty
-//			if (e.Node.Tag == null)
-//				return;
-//
-//			_currentControl = (Control)Activator.CreateInstance(Type.GetType(e.Node.Tag.ToString()));
-//			switch(e.Node.Tag.ToString()) {
-//				case "ShiftChanges.Settings.UI.FoldersSettingsPanel":
-//					((FoldersSettingsPanel)_currentControl).BorderStyle = BorderStyle.FixedSingle;
-//					break;
-//				case "ShiftChanges.Settings.UI.AuthenticationSettingsPanel":
-//					((AuthenticationSettingsPanel)_currentControl).BorderStyle = BorderStyle.FixedSingle;
-//					break;
-//			}
-//			Controls.Add(_currentControl);
 		}
 		
-		void Button2Click(object sender, EventArgs e)
-		{
-			
+		void Button2Click(object sender, EventArgs e) {
+			DialogResult = DialogResult.Cancel;
+			this.Close();
+		}
+		
+		void Button1Click(object sender, EventArgs e) {
+			if(!string.IsNullOrEmpty(foldersSettingsPanel.ShiftsFolder) && !string.IsNullOrEmpty(foldersSettingsPanel.OldShiftsFolder)) {
+				if(ApplicationSettings.DevMode) {
+					try {
+						DirectoryInfo temp = new DirectoryInfo(foldersSettingsPanel.ShiftsFolder);
+						DirectoryInfo temp2 = new DirectoryInfo(foldersSettingsPanel.OldShiftsFolder);
+						if(new DriveInfo(temp.Root.FullName).DriveType != DriveType.Network && new DriveInfo(temp2.Root.FullName).DriveType != DriveType.Network) {
+							ApplicationSettings.DevMode_ShiftsDefaultLocation = temp;
+							ApplicationSettings.DevMode_OldShiftsDefaultLocation = temp2;
+						}
+						else
+							throw new Exception();
+					}
+					catch {
+						MessageBox.Show("Invalid path chosen for the default folders on Dev Mode. Choose a local path.", "Invalid path", MessageBoxButtons.OK, MessageBoxIcon.Error);
+						return;
+					}
+				}
+				else {
+					SettingsFile.ShiftsFolderPath = foldersSettingsPanel.ShiftsFolder;
+					SettingsFile.OldShiftsFolderPath = foldersSettingsPanel.OldShiftsFolder;
+				}
+				DialogResult = DialogResult.OK;
+				this.Close();
+			}
+			else
+				MessageBox.Show("Please choose a valid path for the folders settings.", "Folders missing", MessageBoxButtons.OK, MessageBoxIcon.Error);
 		}
 	}
 }
