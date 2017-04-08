@@ -227,6 +227,7 @@ namespace ShiftChanges
 		
 		void startServiceClick(object sender, EventArgs e) {
 			if(IncomingRequestsFolder != null) {
+				RunOnExistingItems(null, null);
 				// Subscribe to streaming notifications in the Inbox.
 				StreamingSubscription streamingSubscription = service.SubscribeToStreamingNotifications(
 					new FolderId[] { IncomingRequestsFolder.Id }, EventType.NewMail);
@@ -365,7 +366,7 @@ namespace ShiftChanges
 			}
 		}
 		
-		void CreateTask() ////Main method
+		void CreateTask() // Main method
 		{
 			Task oTask = new Task(service);
 //			oService.ImpersonatedUserId = new ImpersonatedUserId(ConnectingIdType.SmtpAddress, "userTowhomtasktocreate@domain.com");

@@ -11,6 +11,7 @@ using System.IO;
 using System.Linq;
 using System.Collections;
 using System.Collections.Generic;
+using System.Windows.Forms;
 using OfficeOpenXml;
 
 namespace ShiftChanges
@@ -89,15 +90,22 @@ namespace ShiftChanges
 		public static void Initiate() {
 			existingFile = GetShiftsFile(DateTime.Now.Year);
 			
+		retry:
 			try {
 				package = new ExcelPackage(existingFile);
 			}
-			catch {
-				if(existingFile != null) {
-					FileInfo tempShiftsFile = existingFile.CopyTo(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData) + "\\" + existingFile.Name, true);
-					package = new ExcelPackage(tempShiftsFile);
+			catch(IOException e) {
+				int errorCode = (int)(e.HResult & 0x0000FFFF);
+				if(errorCode == 32) {
+					DialogResult ans = MessageBox.Show("File '" + existingFile.FullName + "' is currently in use, please close it and retry.", "File in use", MessageBoxButtons.RetryCancel, MessageBoxIcon.Error);
+					if(ans == DialogResult.Retry)
+						goto retry;
+					
+					if(Application.MessageLoop)
+						Application.Exit();
+					else
+						Environment.Exit(1);
 				}
-				
 			}
 			
 			if (package.File != null) {
@@ -164,7 +172,7 @@ namespace ShiftChanges
 					Settings.ApplicationSettings.OldShiftsDefaultLocation;
 			}
 			
-			FileInfo[] foundFiles = folderToSearch.GetFiles("*shift*" + year + "*.xlsx", SearchOption.TopDirectoryOnly);
+			FileInfo[] foundFiles = folderToSearch.GetFiles("*shift*" + year + "*.xlsx", SearchOption.TopDirectoryOnly).Where(f => !f.Name.StartsWith("~$")).ToArray();
 			
 			FileInfo foundFile = null;
 			if(foundFiles.Length > 1)

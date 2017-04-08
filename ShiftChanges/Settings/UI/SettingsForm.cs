@@ -40,7 +40,7 @@ namespace ShiftChanges.Settings.UI
 					string.Empty :
 					ApplicationSettings.DevMode_ShiftsDefaultLocation.FullName;
 				
-				foldersSettingsPanel.OldShiftsFolder = ApplicationSettings.DevMode ?
+				foldersSettingsPanel.OldShiftsFolder = ApplicationSettings.DevMode_OldShiftsDefaultLocation == null ?
 					string.Empty :
 					ApplicationSettings.DevMode_OldShiftsDefaultLocation.FullName;
 			}
