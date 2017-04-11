@@ -48,7 +48,7 @@ namespace ShiftChanges
 				new MenuItem("Start Service", startServiceClick),
 				new MenuItem("Start for Existing Items", RunOnExistingItems),
 				new MenuItem("Settings", menuSettingsClick),
-				new MenuItem("About", menuAboutClick),
+//				new MenuItem("About", menuAboutClick),
 				new MenuItem("Exit", menuExitClick)
 			};
 			return menu;
@@ -265,8 +265,10 @@ namespace ShiftChanges
 						ShiftsSwapRequest swapRequest = new ShiftsSwapRequest(item);
 						ShiftsFile.ResolveShiftsSwapRequestAdresses(ref swapRequest);
 						
-						if(swapRequest.Validate())
+						if(swapRequest.Validate()) {
 							commitRequest(swapRequest);
+							item = item.Move(ApprovedRequestsFolder.Id);
+						}
 						else
 							MessageBox.Show(swapRequest.ValidationMessage);
 					}
@@ -329,8 +331,6 @@ namespace ShiftChanges
 				tempCellRange.Clear();
 				worksheet.Save();
 				package.Save();
-				
-//				item = item.Move(ApprovedRequestsFolder.Id);
 			} // the using statement automatically calls Dispose() which closes the package.
 		}
 		
@@ -357,8 +357,10 @@ namespace ShiftChanges
 				ShiftsSwapRequest swapRequest = new ShiftsSwapRequest(item);
 				ShiftsFile.ResolveShiftsSwapRequestAdresses(ref swapRequest);
 				
-				if(swapRequest.Validate())
+				if(swapRequest.Validate()) {
 					commitRequest(swapRequest);
+					item = item.Move(ApprovedRequestsFolder.Id);
+				}
 				else
 					MessageBox.Show(swapRequest.ValidationMessage);
 				
