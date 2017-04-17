@@ -361,26 +361,29 @@ namespace ShiftChanges
 					commitRequest(swapRequest);
 					item = item.Move(ApprovedRequestsFolder.Id);
 				}
-				else
-					MessageBox.Show(swapRequest.ValidationMessage);
+				else {
+//					MessageBox.Show(swapRequest.ValidationMessage);
+					CreateTask(swapRequest);
+				}
 				
 				itemview.Offset += 1;
 			}
 		}
 		
-		void CreateTask() // Main method
+		void CreateTask(ShiftsSwapRequest request) // Main method
 		{
 			Task oTask = new Task(service);
 //			oService.ImpersonatedUserId = new ImpersonatedUserId(ConnectingIdType.SmtpAddress, "userTowhomtasktocreate@domain.com");
 			
 			oTask.ActualWork = 10;
 
-			oTask.Body = new TextBody("Test");
+//			oTask.Body = new TextBody("Test");
 
 			oTask.Importance = Importance.High;
 			oTask.StartDate =  DateTime.Today;
 			oTask.Status = TaskStatus.InProgress;
-			oTask.Subject = "Test";
+			oTask.Subject = "Shifts Change request could not be automatically approved";
+			oTask.Body.Text = "Original request:\n\n" + request.OriginalRequest + "\n\nRequest received on: " + request.RequestReceivedDateTime + "\nRejection message: " + request.ValidationMessage;
 			Recurrence.DailyPattern dailyPattern = new Recurrence.DailyPattern(DateTime.Now, 1);
 			oTask.Recurrence = dailyPattern;
 			oTask.IsReminderSet = true;
@@ -462,6 +465,10 @@ namespace ShiftChanges
 	public class ShiftsSwapRequest {
 		public ShiftsSwapRequestData Requester { get; private set; }
 		public ShiftsSwapRequestData SwapWith { get; private set; }
+		
+		public string OriginalRequest { get; private set; }
+		public DateTime RequestReceivedDateTime { get; private set; }
+		
 		public bool SameDates {
 			get { return Requester.StartDateColumn == SwapWith.StartDateColumn && Requester.EndDateColumn == SwapWith.EndDateColumn; }
 		}
@@ -469,7 +476,9 @@ namespace ShiftChanges
 		public string ValidationMessage { get; private set; }
 		
 		public ShiftsSwapRequest(Item item) {
-			string[] body = item.Body.Text.Split('\n').Select(s => s.Replace("\r", "").Replace("\n", "")).ToArray();
+			OriginalRequest = item.Body.Text;
+			RequestReceivedDateTime = item.DateTimeReceived;
+			string[] body = OriginalRequest.Split('\n').Select(s => s.Replace("\r", "").Replace("\n", "")).ToArray();
 			
 			Requester = new ShiftsSwapRequestData(
 				body[0].Substring("Interessado: ".Length),
@@ -496,7 +505,7 @@ namespace ShiftChanges
 			if(rowsDifference > 10) {
 				Valid = false;
 				ValidationMessage = "More than 10 rows difference between the 2 persons (" + rowsDifference + ")";
-//				return Valid;
+				return Valid;
 			}
 			
 			// Formandos não podem fazer trocas
@@ -571,7 +580,8 @@ namespace ShiftChanges
 				return Valid;
 			}
 			
-//			Valid = true;
+			Valid = true;
+//			if(string.IsNullOrEmpty(ValidationMessage))
 			ValidationMessage = "Valid for approval";
 			
 			return Valid;
